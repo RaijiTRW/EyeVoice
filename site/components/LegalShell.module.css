@@ -1,0 +1,166 @@
+.page {
+  min-height: 100dvh;
+  background:
+    radial-gradient(ellipse 60% 32% at 100% 0%, rgba(255, 79, 163, 0.1), transparent 72%),
+    #080808;
+  color: #f2f2f2;
+}
+
+.document,
+.footer {
+  width: min(100% - 2.25rem, 70rem);
+  margin-inline: auto;
+}
+
+.document {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(12rem, 0.55fr);
+  column-gap: clamp(2rem, 8vw, 7.5rem);
+  padding-block: clamp(4rem, 10vw, 8rem);
+}
+
+.heading {
+  grid-column: 1;
+}
+
+.heading p {
+  margin: 0;
+  color: #ff4fa3;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.heading h1 {
+  max-width: 10ch;
+  margin: 1rem 0 1.25rem;
+  font-size: clamp(2.7rem, 7vw, 5.5rem);
+  font-weight: 650;
+  line-height: 0.9;
+  letter-spacing: -0.075em;
+  text-wrap: balance;
+}
+
+.heading > span {
+  color: #5c5c5c;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+}
+
+.launchNote {
+  grid-column: 2;
+  align-self: end;
+  margin: 0 0 0.4rem;
+  border-top: 1px solid rgba(255, 79, 163, 0.75);
+  padding-top: 0.8rem;
+  color: #9a9a9a;
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.launchNote b {
+  color: #ff4fa3;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.launchNote p {
+  margin: 0.55rem 0 0;
+}
+
+.copy {
+  grid-column: 1;
+  max-width: 46rem;
+  margin-top: 4rem;
+}
+
+.copy section + section {
+  margin-top: 2.6rem;
+}
+
+.copy h2 {
+  margin: 0 0 0.75rem;
+  color: #f2f2f2;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.copy p,
+.copy li {
+  color: #9a9a9a;
+  font-size: 0.86rem;
+  line-height: 1.78;
+}
+
+.copy p {
+  margin: 0;
+}
+
+.copy p + p {
+  margin-top: 0.8rem;
+}
+
+.copy ul {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.copy strong {
+  color: #f2f2f2;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid rgba(242, 242, 242, 0.14);
+  padding-block: 1.5rem max(1.5rem, env(safe-area-inset-bottom));
+  color: #5c5c5c;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.footer div {
+  display: flex;
+  gap: 1rem;
+}
+
+.footer a:hover {
+  color: #f2f2f2;
+}
+
+@media (max-width: 640px) {
+  .document {
+    display: block;
+    padding-block: 3.75rem 4.75rem;
+  }
+
+  .heading h1 {
+    max-width: 8ch;
+  }
+
+  .launchNote {
+    margin-top: 2.25rem;
+  }
+
+  .copy {
+    margin-top: 3.25rem;
+  }
+
+  .copy p,
+  .copy li {
+    font-size: 0.82rem;
+    line-height: 1.7;
+  }
+
+  .footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

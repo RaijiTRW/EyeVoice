@@ -1,0 +1,562 @@
+"use client";
+
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+
+export type Lang = "ru" | "en";
+
+const ru = {
+  nav: {
+    features: "возможности",
+    how: "как работает",
+    download: "скачать",
+    login: "вход",
+    signup: "регистрация",
+    profile: "профиль",
+  },
+  hero: {
+    kicker: "перевод речи в реальном времени для macOS",
+    h1a: "Слушайте любой источник.",
+    h1b: "Понимайте на своём языке.",
+    lead: "EyeVoice работает в строке меню macOS и переводит речь из микрофона, системного звука или выбранного приложения. Подходит для звонков, трансляций, лекций и видео.",
+    download: "▶ скачать EyeVoice",
+    createAccount: "создать аккаунт",
+    requirements: "macos 14+ · apple silicon",
+  },
+  demo: {
+    eyebrow: "пример работы",
+    title: "Посмотрите, как работает EyeVoice.",
+    description: "Здесь появится короткое видео: выбор источника звука, запуск перевода и результат в реальном времени.",
+    filename: "ДЕМО_01.MP4",
+    status: "OFFLINE",
+    unavailable: "Видео пока недоступно",
+    soon: "Мы готовим демонстрацию продукта. Скоро её можно будет посмотреть прямо на этой странице.",
+  },
+  features: {
+    heading: "возможности",
+    subtitle: "Перевод любого аудио в одном приложении",
+    items: [
+      {
+        tag: "01",
+        title: "ИСТОЧНИКИ ЗВУКА",
+        text: "Выберите микрофон, системный звук или отдельное приложение, например Zoom, Chrome или Telegram.",
+      },
+      {
+        tag: "02",
+        title: "ОТДЕЛЬНАЯ ВКЛАДКА",
+        text: "Выберите вкладку браузера. EyeVoice будет обрабатывать и переводить только её аудио.",
+      },
+      {
+        tag: "03",
+        title: "ЗАДЕРЖКА ОКОЛО СЕКУНДЫ",
+        text: "Перевод начинается до завершения фразы и синхронизируется с темпом речи автоматически.",
+      },
+      {
+        tag: "04",
+        title: "АВТОМАТИЧЕСКАЯ ПАУЗА",
+        text: "После 8 секунд тишины обработка приостанавливается и возобновляется автоматически при появлении звука.",
+      },
+      {
+        tag: "05",
+        title: "СУБТИТРЫ И ИНДИКАЦИЯ",
+        text: "На экране отображаются статус перевода, уровень звука и субтитры в реальном времени.",
+      },
+      {
+        tag: "06",
+        title: "14 ЯЗЫКОВ",
+        text: "Поддерживаются русский, английский, испанский, китайский, японский и другие языки. Язык источника определяется автоматически.",
+      },
+    ],
+  },
+  how: {
+    heading: "как работает",
+    subtitle: "Настройка занимает три шага",
+    step1: "выберите источник",
+    step1val: "система / приложение / вкладка",
+    step2: "выберите язык",
+    step2val: "🇷🇺 русский",
+    step3: "[ ▶ старт ]",
+    step3val: "перевод воспроизводится поверх исходного аудио",
+  },
+  faq: {
+    eyebrow: "частые вопросы",
+    title: "Перед началом.",
+    intro: "Коротко о совместимости, источниках звука, языках и скорости перевода.",
+    items: [
+      {
+        question: "На каких устройствах работает EyeVoice?",
+        answer: "Сейчас EyeVoice доступен для Mac с Apple Silicon и macOS 14 или новее.",
+      },
+      {
+        question: "Какой звук можно переводить?",
+        answer: "Микрофон, системный звук, отдельное приложение или выбранную вкладку браузера.",
+      },
+      {
+        question: "Работает ли EyeVoice с Zoom, YouTube и Telegram?",
+        answer: "Да. Выберите системный звук, конкретное приложение или вкладку, в которой воспроизводится речь.",
+      },
+      {
+        question: "Какие языки поддерживаются?",
+        answer: "Поддерживаются 14 языков, включая русский, английский, испанский, китайский и японский. Язык источника определяется автоматически.",
+      },
+      {
+        question: "Какая задержка у перевода?",
+        answer: "Обычно перевод начинает воспроизводиться примерно через секунду и автоматически подстраивается под темп речи.",
+      },
+      {
+        question: "Нужен ли аккаунт?",
+        answer: "Да. Аккаунт нужен для входа в приложение и доступа к вашему плану.",
+      },
+    ],
+  },
+  cta: {
+    title: "Переводите речь из любого приложения",
+    text: "Установите EyeVoice, выберите источник звука и язык перевода.",
+    download: "▶ скачать EyeVoice",
+    signup: "регистрация",
+  },
+  footer: {
+    made: "доступно на macOS",
+    privacy: "политика",
+    terms: "условия",
+  },
+  auth: {
+    signupTitle: "Регистрация",
+    loginTitle: "Вход",
+    signupSub: "// создайте аккаунт EyeVoice",
+    loginSub: "// войдите в аккаунт EyeVoice",
+    email: "email",
+    password: "пароль",
+    submitSignup: "[ создать аккаунт ]",
+    submitLogin: "[ войти ]",
+    confirmSent1: "Мы отправили письмо на",
+    confirmSent2: "— перейдите по ссылке, чтобы подтвердить аккаунт, затем вернитесь на страницу входа.",
+    toLogin: "к входу",
+    codeStep: "шаг 2 из 2",
+    codeTitle: "Код подтверждения",
+    codeSentTo: "Введите шестизначный код, отправленный на",
+    codeAfter: "После подтверждения вы сразу войдёте в EyeVoice.",
+    codeLabel: "код из письма",
+    confirmCode: "[ подтвердить и войти ]",
+    noCode: "не пришёл код?",
+    resendCode: "отправить снова",
+    resendingCode: "отправляем…",
+    resendIn: "повторить через",
+    secondsShort: "с",
+    codeResent: "Новый код отправлен. Проверьте входящие и папку «Спам».",
+    changeEmail: "изменить email",
+    haveAccount: "уже есть аккаунт?",
+    noAccount: "нет аккаунта?",
+    loginLink: "войти",
+    signupLink: "регистрация",
+    acceptLabel: "Согласие с политикой и условиями",
+    acceptPrefix: "Я принимаю",
+    privacyLink: "политику конфиденциальности",
+    acceptJoin: "и",
+    termsLink: "условия использования",
+    acceptRequired: "подтвердите согласие с политикой конфиденциальности и условиями использования",
+    errors: {
+      invalidCreds: "неверный email или пароль",
+      notConfirmed: "email не подтверждён — проверьте письмо со ссылкой",
+      exists: "аккаунт с таким email уже существует — попробуйте войти",
+      rateLimit: "слишком много попыток — повторите через минуту",
+      invalidEmail: "проверьте формат email",
+      shortPassword: "пароль слишком короткий — минимум 8 символов",
+      invalidOtp: "код неверный или истёк — проверьте его либо запросите новый",
+      sessionMissing: "код подтверждён, но сессия не создана — попробуйте войти",
+    },
+  },
+  profile: {
+    accountCreated: "аккаунт создан",
+    signOut: "выйти",
+    planTitle: "план",
+    current: "[x] текущий",
+    choose: "выбрать этот план",
+    chosen: "текущий план",
+    planNote:
+      "Платежи пока не подключены. Выбранный план сохраняется в аккаунте, списаний нет.",
+    tabPlan: "план",
+    tabStats: "статистика",
+    tabHistory: "платежи",
+    chart: {
+      title: "часы перевода",
+      day: "день",
+      week: "неделя",
+      month: "месяц",
+      year: "год",
+      custom: "свой",
+      from: "с",
+      to: "по",
+      total: "итого",
+      demo: "демо-данные — реальная статистика появится, когда приложение начнёт отправлять использование",
+    },
+    stats: "статистика",
+    hoursThisMonth: "часы в этом месяце",
+    totalTranslated: "всего переведено",
+    sessions: "сессий за всё время",
+    hoursUnit: "ч",
+    ofLimit: "из",
+    history: "история платежей",
+    paymentMethod: "способ оплаты",
+    notConnected: "оплата пока недоступна",
+    noPayments: "Платежей пока нет. История появится после подключения оплаты.",
+  },
+  plans: [
+    {
+      id: "free" as const,
+      name: "FREE",
+      price: "0 ₽",
+      hours: "30 минут / мес",
+      features: [
+        "все источники звука",
+        "14 языков",
+        "обновляется каждый месяц",
+        "без карты",
+      ],
+    },
+    {
+      id: "start" as const,
+      name: "START",
+      price: "1 990 ₽ / мес",
+      hours: "5 часов / мес",
+      features: [
+        "всё из free",
+        "покупка дополнительных часов",
+        "неиспользованные часы переносятся (до 5 ч)",
+        "паузы не учитываются в лимите",
+      ],
+    },
+    {
+      id: "pro" as const,
+      name: "PRO",
+      price: "4 990 ₽ / мес",
+      hours: "15 часов / мес",
+      features: [
+        "всё из start",
+        "скидка на докупку часов",
+        "перенос до 15 ч",
+        "приоритетная поддержка",
+      ],
+    },
+  ],
+  mobile: {
+    login: "войти",
+    heroCode: "перевод речи в реальном времени",
+    lines: ["ЗВУК.", "ПЕРЕВОД.", "ДИАЛОГ."],
+    lead: "EyeVoice переводит речь из микрофона, системного звука или выбранного приложения в реальном времени.",
+    downloadMac: "Скачать EyeVoice",
+    createAccount: "создать аккаунт",
+    featuresCode: "возможности",
+    featuresTitle1: "Все функции.",
+    featuresTitle2: "В одном приложении.",
+    howCode: "как работает",
+    howTitle: "Выберите источник. Получите перевод.",
+    steps: [
+      { title: "Выберите источник", text: "Микрофон, приложение или вкладка браузера." },
+      { title: "Укажите язык", text: "Язык исходной речи определяется автоматически." },
+      { title: "Слушайте перевод", text: "Перевод начинает воспроизводиться примерно через секунду." },
+    ],
+    downloadCode: "версия для macOS",
+    downloadTitle: "Перевод речи в реальном времени на вашем Mac.",
+    requirements: "macOS 14+ · Apple Silicon",
+    downloadBtn: "Скачать EyeVoice",
+    madeFor: "ДОСТУПНО НА macOS",
+  },
+};
+
+const en: typeof ru = {
+  nav: {
+    features: "features",
+    how: "how it works",
+    download: "download",
+    login: "log in",
+    signup: "sign up",
+    profile: "profile",
+  },
+  hero: {
+    kicker: "real-time speech translation for macOS",
+    h1a: "Listen to any source.",
+    h1b: "Understand it in your language.",
+    lead: "EyeVoice runs in the macOS menu bar and translates speech from the microphone, system audio or a selected app. Use it for calls, live streams, lectures and videos.",
+    download: "▶ download EyeVoice",
+    createAccount: "create account",
+    requirements: "macos 14+ · apple silicon",
+  },
+  demo: {
+    eyebrow: "product example",
+    title: "See how EyeVoice works.",
+    description: "A short walkthrough will appear here: choosing an audio source, starting translation and seeing the real-time result.",
+    filename: "DEMO_01.MP4",
+    status: "OFFLINE",
+    unavailable: "Video is currently unavailable",
+    soon: "We are preparing the product demo. You will soon be able to watch it directly on this page.",
+  },
+  features: {
+    heading: "features",
+    subtitle: "Real-time audio translation in one app",
+    items: [
+      {
+        tag: "01",
+        title: "AUDIO SOURCES",
+        text: "Choose the microphone, system audio or a specific app such as Zoom, Chrome or Telegram.",
+      },
+      {
+        tag: "02",
+        title: "A SINGLE BROWSER TAB",
+        text: "Choose a browser tab. EyeVoice processes and translates audio from that tab only.",
+      },
+      {
+        tag: "03",
+        title: "ABOUT ONE SECOND OF DELAY",
+        text: "Translation starts before the sentence ends and automatically follows the speaker's pace.",
+      },
+      {
+        tag: "04",
+        title: "AUTOMATIC PAUSE",
+        text: "Processing pauses after 8 seconds of silence and resumes automatically when audio returns.",
+      },
+      {
+        tag: "05",
+        title: "SUBTITLES AND STATUS",
+        text: "See translation status, audio level and real-time subtitles directly on screen.",
+      },
+      {
+        tag: "06",
+        title: "14 LANGUAGES",
+        text: "Supports Russian, English, Spanish, Chinese, Japanese and more. The source language is detected automatically.",
+      },
+    ],
+  },
+  how: {
+    heading: "how it works",
+    subtitle: "Setup takes three steps",
+    step1: "choose a source",
+    step1val: "system / app / tab",
+    step2: "choose a language",
+    step2val: "🇺🇸 english",
+    step3: "[ ▶ start ]",
+    step3val: "translated speech plays over the source audio",
+  },
+  faq: {
+    eyebrow: "frequently asked",
+    title: "Before you start.",
+    intro: "The essentials on compatibility, audio sources, languages and translation speed.",
+    items: [
+      {
+        question: "Which devices support EyeVoice?",
+        answer: "EyeVoice is currently available for Apple Silicon Macs running macOS 14 or later.",
+      },
+      {
+        question: "Which audio sources can I translate?",
+        answer: "Your microphone, system audio, a specific app or a selected browser tab.",
+      },
+      {
+        question: "Does EyeVoice work with Zoom, YouTube and Telegram?",
+        answer: "Yes. Select system audio, the specific app or the browser tab where speech is playing.",
+      },
+      {
+        question: "Which languages are supported?",
+        answer: "EyeVoice supports 14 languages, including English, Russian, Spanish, Chinese and Japanese. It detects the source language automatically.",
+      },
+      {
+        question: "How much translation delay is there?",
+        answer: "Translation usually starts playing in about one second and automatically follows the speaker's pace.",
+      },
+      {
+        question: "Do I need an account?",
+        answer: "Yes. Your account is used to sign in to the app and access your plan.",
+      },
+    ],
+  },
+  cta: {
+    title: "Translate speech from any app",
+    text: "Install EyeVoice, choose an audio source and select the translation language.",
+    download: "▶ download EyeVoice",
+    signup: "sign up",
+  },
+  footer: {
+    made: "available on macOS",
+    privacy: "privacy",
+    terms: "terms",
+  },
+  auth: {
+    signupTitle: "Sign up",
+    loginTitle: "Log in",
+    signupSub: "// create your EyeVoice account",
+    loginSub: "// sign in to your EyeVoice account",
+    email: "email",
+    password: "password",
+    submitSignup: "[ create account ]",
+    submitLogin: "[ log in ]",
+    confirmSent1: "We sent an email to",
+    confirmSent2: "— follow the link to confirm your account, then return to the sign-in page.",
+    toLogin: "to login",
+    codeStep: "step 2 of 2",
+    codeTitle: "Confirmation code",
+    codeSentTo: "Enter the six-digit code sent to",
+    codeAfter: "You will enter EyeVoice immediately after confirmation.",
+    codeLabel: "code from email",
+    confirmCode: "[ confirm and enter ]",
+    noCode: "didn't receive the code?",
+    resendCode: "send again",
+    resendingCode: "sending…",
+    resendIn: "resend in",
+    secondsShort: "s",
+    codeResent: "A new code was sent. Check your inbox and spam folder.",
+    changeEmail: "change email",
+    haveAccount: "already have an account?",
+    noAccount: "no account yet?",
+    loginLink: "log in",
+    signupLink: "sign up",
+    acceptLabel: "Accept privacy policy and terms",
+    acceptPrefix: "I accept the",
+    privacyLink: "privacy policy",
+    acceptJoin: "and",
+    termsLink: "terms of use",
+    acceptRequired: "confirm that you accept the privacy policy and terms of use",
+    errors: {
+      invalidCreds: "incorrect email or password",
+      notConfirmed: "email not confirmed — check your inbox for the confirmation link",
+      exists: "an account with this email already exists — try signing in",
+      rateLimit: "too many attempts — try again in one minute",
+      invalidEmail: "check the email format",
+      shortPassword: "password is too short — at least 8 characters",
+      invalidOtp: "the code is incorrect or expired — check it or request a new one",
+      sessionMissing: "the code was confirmed, but no session was created — try signing in",
+    },
+  },
+  profile: {
+    accountCreated: "account created",
+    signOut: "sign out",
+    planTitle: "plan",
+    current: "[x] current",
+    choose: "choose this plan",
+    chosen: "current plan",
+    planNote:
+      "Payments are not available yet. Your selected plan is saved to the account and no charges are made.",
+    tabPlan: "plan",
+    tabStats: "statistics",
+    tabHistory: "payments",
+    chart: {
+      title: "translation hours",
+      day: "day",
+      week: "week",
+      month: "month",
+      year: "year",
+      custom: "custom",
+      from: "from",
+      to: "to",
+      total: "total",
+      demo: "demo data — real stats appear once the app starts reporting usage",
+    },
+    stats: "statistics",
+    hoursThisMonth: "hours this month",
+    totalTranslated: "total translated",
+    sessions: "sessions all time",
+    hoursUnit: "h",
+    ofLimit: "of",
+    history: "payment history",
+    paymentMethod: "payment method",
+    notConnected: "billing is not available yet",
+    noPayments: "No payments yet. History will appear after billing is enabled.",
+  },
+  plans: [
+    {
+      id: "free" as const,
+      name: "FREE",
+      price: "$0",
+      hours: "30 min / mo",
+      features: [
+        "all audio sources",
+        "14 languages",
+        "renews every month",
+        "no card required",
+      ],
+    },
+    {
+      id: "start" as const,
+      name: "START",
+      price: "$19 / mo",
+      hours: "5 hours / mo",
+      features: [
+        "everything in free",
+        "additional hours available for purchase",
+        "unused hours roll over (up to 5 h)",
+        "paused time does not count toward the limit",
+      ],
+    },
+    {
+      id: "pro" as const,
+      name: "PRO",
+      price: "$49 / mo",
+      hours: "15 hours / mo",
+      features: [
+        "everything in start",
+        "discounted extra hours",
+        "roll over up to 15 h",
+        "priority support",
+      ],
+    },
+  ],
+  mobile: {
+    login: "log in",
+    heroCode: "real-time speech translation",
+    lines: ["HEAR.", "UNDERSTAND.", "REPLY."],
+    lead: "EyeVoice translates speech from the microphone, system audio or a selected app in real time.",
+    downloadMac: "Download EyeVoice",
+    createAccount: "create account",
+    featuresCode: "features",
+    featuresTitle1: "Every feature.",
+    featuresTitle2: "One application.",
+    howCode: "how it works",
+    howTitle: "Choose a source. Receive the translation.",
+    steps: [
+      { title: "Choose a source", text: "Microphone, application or browser tab." },
+      { title: "Select a language", text: "The source language is detected automatically." },
+      { title: "Hear the translation", text: "Translated speech starts playing in about one second." },
+    ],
+    downloadCode: "version for macOS",
+    downloadTitle: "Real-time speech translation on your Mac.",
+    requirements: "macOS 14+ · Apple Silicon",
+    downloadBtn: "Download EyeVoice",
+    madeFor: "AVAILABLE ON macOS",
+  },
+};
+
+export const translations = { ru, en };
+export type Dict = typeof ru;
+
+const LangContext = createContext<{
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  t: Dict;
+}>({ lang: "ru", setLang: () => {}, t: ru });
+
+export function LangProvider({ children }: { children: ReactNode }) {
+  const [lang, setLangState] = useState<Lang>("ru");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("lang");
+    if (saved === "en" || saved === "ru") setLangState(saved);
+  }, []);
+
+  function setLang(l: Lang) {
+    setLangState(l);
+    localStorage.setItem("lang", l);
+  }
+
+  return (
+    <LangContext.Provider value={{ lang, setLang, t: translations[lang] }}>
+      {children}
+    </LangContext.Provider>
+  );
+}
+
+export function useLang() {
+  return useContext(LangContext);
+}

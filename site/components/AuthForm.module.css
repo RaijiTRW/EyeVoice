@@ -1,0 +1,243 @@
+.otpCard {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border: 1px solid rgba(242, 242, 242, 0.13);
+  border-radius: 0.9rem;
+  padding: 1.4rem;
+  background: rgba(5, 5, 5, 0.24);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+.otpStep {
+  color: #ff4fa3;
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.otpTitle {
+  margin: -0.25rem 0 0;
+  color: #f2f2f2;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.otpDescription {
+  margin: -0.35rem 0 0.35rem;
+  color: #777;
+  font-size: 0.72rem;
+  line-height: 1.65;
+}
+
+.otpDescription span {
+  color: #c8c8c8;
+}
+
+.otpLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.otpLabel > span {
+  color: #777;
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.otpInput {
+  width: 100%;
+  height: 3.5rem;
+  border: 1px solid rgba(242, 242, 242, 0.17);
+  border-radius: 0.65rem;
+  outline: none;
+  background: rgba(0, 0, 0, 0.28);
+  color: #f2f2f2;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.55em;
+  text-align: center;
+  text-indent: 0.55em;
+  transition:
+    border-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    background 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.otpInput:focus {
+  border-color: rgba(255, 79, 163, 0.58);
+  background: rgba(255, 79, 163, 0.035);
+  box-shadow: 0 0 0 3px rgba(255, 79, 163, 0.08);
+}
+
+.otpInput::placeholder {
+  color: rgba(119, 119, 119, 0.42);
+}
+
+.otpError,
+.otpNotice {
+  border-radius: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.otpError {
+  border: 1px solid rgba(255, 79, 163, 0.4);
+  background: rgba(255, 79, 163, 0.05);
+  color: #ff4fa3;
+}
+
+.otpNotice {
+  border: 1px solid rgba(242, 242, 242, 0.1);
+  background: rgba(242, 242, 242, 0.025);
+  color: #9a9a9a;
+}
+
+.otpActions {
+  color: #777;
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.otpActions button,
+.changeEmail {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #c8c8c8;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.22em;
+  transition: color 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.otpActions button:hover:not(:disabled),
+.otpActions button:focus-visible,
+.changeEmail:hover,
+.changeEmail:focus-visible {
+  color: #ff4fa3;
+}
+
+.otpActions button:disabled {
+  color: #555;
+  cursor: default;
+  text-decoration: none;
+}
+
+.changeEmail {
+  align-self: center;
+  color: #666;
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.consent {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.1rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.7rem;
+  border: 1px solid rgba(242, 242, 242, 0.12);
+  border-radius: 0.7rem;
+  padding: 0.75rem;
+  background: rgba(5, 5, 5, 0.34);
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.consent:has(.nativeCheckbox:checked) {
+  border-color: rgba(255, 79, 163, 0.42);
+  background: rgba(255, 79, 163, 0.045);
+}
+
+.nativeCheckbox {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.checkmark {
+  display: grid;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: 0.08rem;
+  place-items: center;
+  border: 1px solid rgba(242, 242, 242, 0.38);
+  border-radius: 0.24rem;
+  color: #080808;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.checkmark span {
+  font-size: 0.66rem;
+  font-weight: 800;
+  opacity: 0;
+  transform: scale(0.55);
+  transition: opacity 150ms ease, transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nativeCheckbox:checked + .checkmark {
+  border-color: #ff4fa3;
+  background: #ff4fa3;
+}
+
+.nativeCheckbox:checked + .checkmark span {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.nativeCheckbox:focus-visible + .checkmark {
+  outline: 2px solid #f2f2f2;
+  outline-offset: 3px;
+}
+
+.checkmark:active {
+  transform: scale(0.92);
+}
+
+.consentText {
+  margin: 0;
+  color: #777;
+  font-size: 0.61rem;
+  line-height: 1.55;
+}
+
+.consentText label {
+  cursor: pointer;
+}
+
+.consentText a {
+  border-bottom: 1px solid rgba(242, 242, 242, 0.24);
+  color: #c8c8c8;
+  transition: border-color 180ms ease, color 180ms ease;
+}
+
+.consentText a:hover,
+.consentText a:focus-visible {
+  border-color: #ff4fa3;
+  color: #ff4fa3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .consent,
+  .checkmark,
+  .checkmark span,
+  .consentText a {
+    transition: none;
+  }
+
+  .otpInput,
+  .otpActions button,
+  .changeEmail {
+    transition: none;
+  }
+}

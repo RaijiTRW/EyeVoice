@@ -1,0 +1,38 @@
+# macOS and local editor state
+.DS_Store
+.claude/
+.playwright-cli/
+*.xcuserstate
+xcuserdata/
+DerivedData/
+
+# Swift build output
+.build/
+build/
+
+# Web dependencies and generated output
+site/node_modules/
+site/.next/
+site/out/
+site/coverage/
+site/.vercel/
+site/*.tsbuildinfo
+site/next-env.d.ts
+
+# Environment files and credentials
+.env
+.env.*
+!.env.example
+site/.env
+site/.env.*
+!site/.env.example
+*.pem
+*.key
+*.p12
+*.mobileprovision
+
+# Package manager and debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

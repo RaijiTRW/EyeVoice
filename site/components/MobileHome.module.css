@@ -1,0 +1,30 @@
+.root {
+  /* Keeps decorative layers inside the page without turning this element into
+     the scroll container that would break the sticky navigation. */
+  overflow: clip;
+}
+
+/* The desktop-like ultra-tight display tracking makes Cyrillic glyphs touch on
+   small screens. These values keep the editorial weight without collisions. */
+.root :global(.mobile-display) {
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  font-kerning: normal;
+}
+
+.root :global(.mobile-display > span) {
+  line-height: 1.06;
+}
+
+.root :global(.mobile-section-title),
+.root :global(.mobile-process-title) {
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+  font-kerning: normal;
+}
+
+.root :global(.mobile-download-section h2) {
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  font-kerning: normal;
+}
