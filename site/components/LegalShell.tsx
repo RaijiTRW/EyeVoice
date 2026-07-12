@@ -21,14 +21,6 @@ export default function LegalShell({ eyebrow, title, updated, children }: LegalS
           <span>Обновлено: {updated}</span>
         </div>
 
-        <aside className={styles.launchNote}>
-          <b>Перед публикацией</b>
-          <p>
-            Укажите полное имя или название оператора, страну регистрации и рабочий email для обращений.
-            Это нужно, чтобы документ соответствовал фактической модели работы EyeVoice.
-          </p>
-        </aside>
-
         <div className={styles.copy}>{children}</div>
       </article>
 
