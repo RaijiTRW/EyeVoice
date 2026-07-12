@@ -49,3 +49,20 @@ https://seexmgivktuycodxrjhs.supabase.co/functions/v1/yookassa-webhook
 The incoming notification is never trusted directly: the function reloads the
 payment through the authenticated YooKassa API, checks its owner, plan, amount,
 currency, and idempotently activates one month of access.
+
+## Private account history
+
+`202607130002_account_history.sql` creates a service-role-only event ledger and
+automatically records account creation, payment status changes, subscription
+changes, and completed translation sessions. It never stores audio or
+translated text.
+
+Administrative support and usage queries are available through these views:
+
+- `admin_account_overview` — account, current plan, payment totals, and usage;
+- `admin_monthly_usage` — monthly session count and translated seconds;
+- `admin_account_timeline` — chronological account, billing, and usage events.
+
+The views and the underlying `account_events` table are revoked from `anon` and
+`authenticated`. Access them only from trusted server-side tooling using the
+Supabase service role. Never expose the service role key to the website or app.
