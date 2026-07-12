@@ -22,3 +22,30 @@ accounts. The macOS app never embeds or accepts a provider API key.
 Never place `OPENAI_API_KEY` in `.env.local`, `Info.plist`, Swift source,
 UserDefaults, or the application Keychain. Production entitlement and usage
 limits should also be enforced in this server function before minting a token.
+
+## YooKassa billing
+
+`202607130001_billing.sql` creates server-owned payment and subscription
+records. Authenticated users can read only their own records; only Edge
+Functions using the service role can activate a paid plan.
+
+Set these Edge Function secrets (never add their values to Git):
+
+```sh
+supabase secrets set \
+  YOOKASSA_SHOP_ID=<shop-id> \
+  YOOKASSA_SECRET_KEY=<secret-key> \
+  SITE_URL=https://eyevoicetranslate.com
+```
+
+Deploy `create-payment`, `confirm-payment`, `yookassa-webhook`, and
+`realtime-token`. In the YooKassa dashboard, subscribe `payment.succeeded` and
+`payment.canceled` notifications to:
+
+```text
+https://seexmgivktuycodxrjhs.supabase.co/functions/v1/yookassa-webhook
+```
+
+The incoming notification is never trusted directly: the function reloads the
+payment through the authenticated YooKassa API, checks its owner, plan, amount,
+currency, and idempotently activates one month of access.

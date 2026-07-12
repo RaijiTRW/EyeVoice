@@ -2,3 +2,12 @@ project_id = "seexmgivktuycodxrjhs"
 
 [functions.realtime-token]
 verify_jwt = true
+
+[functions.create-payment]
+verify_jwt = true
+
+[functions.confirm-payment]
+verify_jwt = true
+
+[functions.yookassa-webhook]
+verify_jwt = false

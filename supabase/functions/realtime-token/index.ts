@@ -30,12 +30,13 @@ Deno.serve(async (request) => {
   const authorization = request.headers.get("Authorization");
   const supabaseURL = Deno.env.get("SUPABASE_URL");
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const openAIKey = Deno.env.get("OPENAI_API_KEY");
 
   if (!authorization?.startsWith("Bearer ")) {
     return json({ error: "Authentication required" }, 401);
   }
-  if (!supabaseURL || !supabaseAnonKey || !openAIKey) {
+  if (!supabaseURL || !supabaseAnonKey || !serviceRoleKey || !openAIKey) {
     return json({ error: "Server configuration is incomplete" }, 503);
   }
 
@@ -52,6 +53,38 @@ Deno.serve(async (request) => {
   const user = await userResponse.json() as { id?: string };
   if (!user.id) {
     return json({ error: "Invalid account" }, 401);
+  }
+
+  const adminHeaders = {
+    apikey: serviceRoleKey,
+    Authorization: `Bearer ${serviceRoleKey}`,
+  };
+  const subscriptionResponse = await fetch(
+    `${supabaseURL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(user.id)}&status=eq.active&current_period_end=gt.${encodeURIComponent(new Date().toISOString())}&select=plan_id&limit=1`,
+    { headers: adminHeaders },
+  );
+  const subscriptions = subscriptionResponse.ok ? await subscriptionResponse.json() : [];
+  const plan = subscriptions?.[0]?.plan_id === "pro"
+    ? "pro"
+    : subscriptions?.[0]?.plan_id === "start"
+      ? "start"
+      : "free";
+  const limits = { free: 30 * 60, start: 5 * 60 * 60, pro: 15 * 60 * 60 };
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const usageResponse = await fetch(
+    `${supabaseURL}/rest/v1/translation_sessions?user_id=eq.${encodeURIComponent(user.id)}&ended_at=gte.${encodeURIComponent(monthStart.toISOString())}&select=duration_seconds`,
+    { headers: adminHeaders },
+  );
+  const sessions = usageResponse.ok ? await usageResponse.json() : [];
+  const usedSeconds = sessions.reduce(
+    (total: number, session: { duration_seconds?: number }) =>
+      total + Math.max(0, Number(session.duration_seconds) || 0),
+    0,
+  );
+  if (usedSeconds >= limits[plan]) {
+    return json({ error: "Monthly translation limit reached", plan }, 402);
   }
 
   let payload: { mode?: string; target_language?: string; voice?: string };

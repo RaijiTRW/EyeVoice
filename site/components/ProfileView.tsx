@@ -13,6 +13,23 @@ import { useProfileSection } from "@/lib/profile-section";
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
+type PaymentRow = {
+  id: string;
+  plan_id: "start" | "pro";
+  amount: number;
+  currency: string;
+  status: "pending" | "waiting_for_capture" | "succeeded" | "canceled";
+  payment_method: string | null;
+  paid_at: string | null;
+  created_at: string;
+};
+
+type SubscriptionRow = {
+  plan_id: "start" | "pro";
+  status: "active" | "expired" | "canceled";
+  current_period_end: string;
+};
+
 /** Odometer: on change each character rolls in from above/below, alternating. */
 function Odometer({ value, className }: { value: string; className?: string }) {
   return (
@@ -49,19 +66,75 @@ export default function ProfileView() {
   const [usageSessions, setUsageSessions] = useState<UsageSession[]>([]);
   const [usageLoading, setUsageLoading] = useState(true);
   const [usageFailed, setUsageFailed] = useState(false);
+  const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [checkingPayment, setCheckingPayment] = useState(false);
 
   const plans = t.plans;
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
-    const saved = user?.user_metadata?.plan as PlanId | undefined;
-    if (saved && plans.some((p) => p.id === saved)) {
-      queueMicrotask(() => {
-        setPlan(saved);
-        setViewPlan(saved);
-      });
-    }
   }, [user, loading, router, plans]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const returnedFromPayment = new URLSearchParams(window.location.search).get("payment") === "return";
+
+    async function loadBilling(attempt = 0) {
+      const pendingPaymentId = returnedFromPayment
+        ? window.localStorage.getItem("eyevoice_pending_payment")
+        : null;
+      if (pendingPaymentId) {
+        const { data } = await supabase.functions.invoke("confirm-payment", {
+          body: { payment_id: pendingPaymentId },
+        });
+        if (data?.status === "succeeded" || data?.status === "canceled") {
+          window.localStorage.removeItem("eyevoice_pending_payment");
+        }
+      }
+
+      const [{ data: subscription }, { data: paymentRows }] = await Promise.all([
+        supabase
+          .from("subscriptions")
+          .select("plan_id,status,current_period_end")
+          .eq("user_id", user!.id)
+          .maybeSingle<SubscriptionRow>(),
+        supabase
+          .from("payments")
+          .select("id,plan_id,amount,currency,status,payment_method,paid_at,created_at")
+          .eq("user_id", user!.id)
+          .order("created_at", { ascending: false })
+          .limit(20),
+      ]);
+      if (cancelled) return;
+
+      const active = subscription?.status === "active" &&
+        new Date(subscription.current_period_end) > new Date();
+      const nextPlan: PlanId = active ? subscription.plan_id : "free";
+      setPlan(nextPlan);
+      setPayments((paymentRows ?? []) as PaymentRow[]);
+      if (attempt === 0 || active) setViewPlan(nextPlan);
+
+      if (returnedFromPayment && !active && attempt < 12) {
+        setCheckingPayment(true);
+        timer = setTimeout(() => void loadBilling(attempt + 1), 2000);
+      } else {
+        setCheckingPayment(false);
+        if (returnedFromPayment) {
+          const cleanUrl = `${window.location.pathname}${window.location.hash}`;
+          window.history.replaceState({}, "", cleanUrl);
+        }
+      }
+    }
+
+    void loadBilling();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [user]);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,10 +199,21 @@ export default function ProfileView() {
   const viewing = plans.find((p) => p.id === viewPlan)!;
 
   async function choosePlan(id: PlanId) {
+    if (id === "free" || id === plan) return;
     setSaving(true);
-    const { error } = await supabase.auth.updateUser({ data: { plan: id } });
+    setPaymentError(null);
+    const { data, error } = await supabase.functions.invoke("create-payment", {
+      body: { plan_id: id },
+    });
     setSaving(false);
-    if (!error) setPlan(id);
+    if (error || typeof data?.confirmation_url !== "string") {
+      setPaymentError(t.profile.paymentError);
+      return;
+    }
+    if (typeof data.payment_id === "string") {
+      window.localStorage.setItem("eyevoice_pending_payment", data.payment_id);
+    }
+    window.location.assign(data.confirmation_url);
   }
 
   async function signOut() {
@@ -280,17 +364,26 @@ export default function ProfileView() {
 
             <button
               onClick={() => choosePlan(viewPlan)}
-              disabled={plan === viewPlan || saving}
+              disabled={viewPlan === "free" || plan === viewPlan || saving || checkingPayment}
               className={`btn mt-4 w-full !py-2 !text-[9px] md:!text-[10px] ${
-                plan === viewPlan ? "opacity-40" : "btn-primary btn-accent"
+                viewPlan === "free" || plan === viewPlan ? "opacity-40" : "btn-primary btn-accent"
               } disabled:pointer-events-none`}
             >
-              {saving
-                ? "• • •"
+              {checkingPayment
+                ? t.profile.paymentChecking
+                : saving
+                  ? t.profile.paymentStarting
+                  : viewPlan === "free" && plan !== "free"
+                    ? t.profile.freeIncluded
                 : plan === viewPlan
                   ? t.profile.chosen
                   : t.profile.choose}
             </button>
+            {paymentError && (
+              <p className="mt-2 text-[9px] leading-relaxed text-accent md:text-[10px]">
+                {paymentError}
+              </p>
+            )}
             <p className="mt-2 text-[9px] leading-relaxed text-faint md:text-[10px]">
               {t.profile.planNote}
             </p>
@@ -325,9 +418,45 @@ export default function ProfileView() {
                 <span className="text-dim">{t.profile.paymentMethod}</span>
                 <span className="text-faint">{t.profile.notConnected}</span>
               </div>
-              <div className="mt-3 rounded-lg border border-dashed border-line/80 px-4 py-6 text-center text-[10px] leading-relaxed text-faint md:text-[11px]">
-                {t.profile.noPayments}
-              </div>
+              {payments.length === 0 ? (
+                <div className="mt-3 rounded-lg border border-dashed border-line/80 px-4 py-6 text-center text-[10px] leading-relaxed text-faint md:text-[11px]">
+                  {t.profile.noPayments}
+                </div>
+              ) : (
+                <div className="mt-2 divide-y divide-line/60">
+                  {payments.map((payment) => {
+                    const status = payment.status === "succeeded"
+                      ? t.profile.paymentSucceeded
+                      : payment.status === "canceled"
+                        ? t.profile.paymentCanceled
+                        : t.profile.paymentPending;
+                    const date = new Date(payment.paid_at ?? payment.created_at).toLocaleDateString(
+                      lang === "ru" ? "ru-RU" : "en-US",
+                      { day: "2-digit", month: "short", year: "numeric" },
+                    );
+                    return (
+                      <div key={payment.id} className="flex items-center justify-between gap-4 py-3 text-[9px] md:text-[10px]">
+                        <div className="min-w-0">
+                          <div className="font-bold uppercase tracking-widest text-dim">
+                            EyeVoice {payment.plan_id.toUpperCase()}
+                          </div>
+                          <div className="mt-1 text-faint">{date}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-ink">
+                            {Number(payment.amount).toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽
+                          </div>
+                          <div className={`mt-1 uppercase tracking-widest ${
+                            payment.status === "succeeded" ? "text-accent" : "text-faint"
+                          }`}>
+                            {status}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </motion.div>
