@@ -47,9 +47,18 @@ rsync -a --delete "$STAGING/" "$LIVE/"
 chown -R eyevoice:eyevoice "$LIVE"
 systemctl start "$SERVICE"
 
-if ! curl --fail --silent --show-error --max-time 15 \
-  http://127.0.0.1:3000/ >/dev/null; then
+healthy=false
+for attempt in {1..30}; do
+  if curl --fail --silent --max-time 3 http://127.0.0.1:3000/ >/dev/null; then
+    healthy=true
+    break
+  fi
+  sleep 1
+done
+
+if [[ "$healthy" != true ]]; then
   echo "Health check failed; restoring the previous website release." >&2
+  systemctl status "$SERVICE" --no-pager -l >&2 || true
   systemctl stop "$SERVICE" || true
   rsync -a --delete "$PREVIOUS/" "$LIVE/"
   chown -R eyevoice:eyevoice "$LIVE"
