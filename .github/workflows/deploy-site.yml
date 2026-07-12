@@ -1,0 +1,62 @@
+name: Deploy website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eyevoice-production-site
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy site to VDS
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure deployment SSH key
+        env:
+          VDS_HOST: ${{ secrets.VDS_HOST }}
+          VDS_SSH_KEY: ${{ secrets.VDS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 0700 "$HOME/.ssh"
+          printf '%s\n' "$VDS_SSH_KEY" > "$HOME/.ssh/eyevoice_deploy"
+          chmod 0600 "$HOME/.ssh/eyevoice_deploy"
+          ssh-keyscan -H "$VDS_HOST" >> "$HOME/.ssh/known_hosts"
+
+      - name: Upload website source
+        env:
+          VDS_HOST: ${{ secrets.VDS_HOST }}
+          VDS_USER: ${{ secrets.VDS_USER }}
+        run: |
+          set -euo pipefail
+          SSH="ssh -i $HOME/.ssh/eyevoice_deploy -o IdentitiesOnly=yes"
+          $SSH "$VDS_USER@$VDS_HOST" "mkdir -p incoming/site"
+          rsync -az --delete \
+            -e "$SSH" \
+            --exclude node_modules/ \
+            --exclude .next/ \
+            --exclude .env.local \
+            site/ "$VDS_USER@$VDS_HOST:incoming/site/"
+
+      - name: Build and activate release
+        env:
+          VDS_HOST: ${{ secrets.VDS_HOST }}
+          VDS_USER: ${{ secrets.VDS_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/eyevoice_deploy" \
+            -o IdentitiesOnly=yes \
+            "$VDS_USER@$VDS_HOST" \
+            "sudo /usr/local/sbin/eyevoice-deploy-site"

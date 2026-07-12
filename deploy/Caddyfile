@@ -1,0 +1,20 @@
+eyevoicetranslate.com, www.eyevoicetranslate.com {
+    encode zstd gzip
+
+    @www host www.eyevoicetranslate.com
+    redir @www https://eyevoicetranslate.com{uri} permanent
+
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        X-Frame-Options SAMEORIGIN
+        -Server
+    }
+
+    reverse_proxy 127.0.0.1:3000
+}
+
+http://195.209.216.86 {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:3000
+}

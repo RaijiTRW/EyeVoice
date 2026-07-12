@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+exec 9>/run/lock/eyevoice-site-deploy.lock
+if ! flock -n 9; then
+  echo "Another EyeVoice website deployment is already running." >&2
+  exit 1
+fi
+
+INCOMING="/home/eyevoice-deploy/incoming/site"
+STAGING="/opt/eyevoice-site-staging"
+PREVIOUS="/opt/eyevoice-site-previous"
+LIVE="/opt/eyevoice/site"
+ENV_FILE="/etc/eyevoice/site.env"
+SERVICE="eyevoice-site.service"
+
+if [[ ! -f "$INCOMING/package.json" || ! -f "$INCOMING/package-lock.json" ]]; then
+  echo "Incoming website release is incomplete." >&2
+  exit 1
+fi
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "Website environment file is missing." >&2
+  exit 1
+fi
+
+install -d -o eyevoice -g eyevoice -m 0755 "$STAGING" "$PREVIOUS"
+rsync -a --delete \
+  --exclude node_modules/ \
+  --exclude .next/ \
+  "$INCOMING/" "$STAGING/"
+chown -R eyevoice:eyevoice "$STAGING"
+
+runuser -u eyevoice -- /bin/bash -c "
+  set -euo pipefail
+  cd '$STAGING'
+  set -a
+  source '$ENV_FILE'
+  set +a
+  npm ci
+  npm run build
+"
+
+rsync -a --delete "$LIVE/" "$PREVIOUS/"
+
+systemctl stop "$SERVICE"
+rsync -a --delete "$STAGING/" "$LIVE/"
+chown -R eyevoice:eyevoice "$LIVE"
+systemctl start "$SERVICE"
+
+if ! curl --fail --silent --show-error --max-time 15 \
+  http://127.0.0.1:3000/ >/dev/null; then
+  echo "Health check failed; restoring the previous website release." >&2
+  systemctl stop "$SERVICE" || true
+  rsync -a --delete "$PREVIOUS/" "$LIVE/"
+  chown -R eyevoice:eyevoice "$LIVE"
+  systemctl start "$SERVICE"
+  exit 1
+fi
+
+echo "EyeVoice website deployment completed successfully."
