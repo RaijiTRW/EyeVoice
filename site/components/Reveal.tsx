@@ -16,12 +16,22 @@ export function Reveal({
   children,
   delay = 0,
   className,
+  direction = "up",
+  distance = 34,
 }: {
   children: ReactNode;
   delay?: number;
   className?: string;
+  direction?: "up" | "left" | "right";
+  distance?: number;
 }) {
   const reducedMotion = useReducedMotion();
+  const initialOffset =
+    direction === "left"
+      ? { x: -distance, y: 0 }
+      : direction === "right"
+        ? { x: distance, y: 0 }
+        : { x: 0, y: distance };
 
   return (
     <motion.div
@@ -29,9 +39,9 @@ export function Reveal({
       initial={
         reducedMotion
           ? false
-          : { opacity: 0, y: 34, scale: 0.985, filter: "blur(10px)" }
+          : { opacity: 0, ...initialOffset, scale: 0.985, filter: "blur(10px)" }
       }
-      whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+      whileInView={{ opacity: 1, x: 0, y: 0, scale: 1, filter: "blur(0px)" }}
       viewport={{ once: true, margin: "-72px" }}
       transition={{ duration: 0.82, delay, ease }}
     >

@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
     private var mainWindow: NSWindow?
     private var panel: NSPanel?
+    private var translationMenuItem: NSMenuItem?
     private var clickMonitor: Any?
     private var cancellables = Set<AnyCancellable>()
 
@@ -27,11 +28,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] running in
                 self?.statusItem.button?.image = Self.eyeImage(active: running)
+                self?.translationMenuItem?.title = running
+                    ? "Остановить перевод"
+                    : "Запустить перевод"
             }
             .store(in: &cancellables)
 
         AppState.shared.refreshApps()
         showMainWindow()
+        UpdateManager.shared.start()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -57,7 +62,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         closePanel()
         sender.orderOut(nil)
-        NSApp.hide(nil)
         return false
     }
 
@@ -73,15 +77,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         openItem.target = self
         appMenu.addItem(openItem)
+
+        let translationItem = NSMenuItem(
+            title: "Запустить перевод",
+            action: #selector(toggleTranslationFromMenu(_:)),
+            keyEquivalent: ""
+        )
+        translationItem.target = self
+        appMenu.addItem(translationItem)
+        translationMenuItem = translationItem
         appMenu.addItem(.separator())
 
         let hideItem = NSMenuItem(
             title: "Скрыть EyeVoice",
-            action: #selector(NSApplication.hide(_:)),
+            action: #selector(hideMainWindow(_:)),
             keyEquivalent: "h"
         )
-        hideItem.target = NSApp
+        hideItem.target = self
         appMenu.addItem(hideItem)
+        appMenu.addItem(.separator())
+
+        let updateItem = NSMenuItem(
+            title: "Проверить обновления…",
+            action: #selector(UpdateManager.checkForUpdatesFromMenu(_:)),
+            keyEquivalent: ""
+        )
+        updateItem.target = UpdateManager.shared
+        appMenu.addItem(updateItem)
 
         let quitItem = NSMenuItem(
             title: "Завершить EyeVoice",
@@ -128,6 +150,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func showMainWindowFromMenu(_ sender: Any?) {
         showMainWindow()
+    }
+
+    @objc private func hideMainWindow(_ sender: Any?) {
+        closePanel()
+        mainWindow?.orderOut(nil)
+    }
+
+    @objc private func toggleTranslationFromMenu(_ sender: Any?) {
+        AppState.shared.toggle()
     }
 
     /// Menu bar eye: almond outline with a pupil; filled (inverted) when translation is active.

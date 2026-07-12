@@ -2,31 +2,39 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key>
-    <string>EyeVoice</string>
-    <key>CFBundleDisplayName</key>
-    <string>EyeVoice</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.aleksey.eyevoice</string>
-    <key>CFBundleExecutable</key>
-    <string>EyeVoice</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
-    <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>14.0</string>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-    <key>NSAppleEventsUsageDescription</key>
-    <string>EyeVoice lists and activates browser tabs to capture the right audio.</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>EyeVoice needs the microphone to translate your voice in real time.</string>
-    <key>NSAudioCaptureUsageDescription</key>
-    <string>EyeVoice captures application audio to translate it in real time.</string>
+	<key>CFBundleDisplayName</key>
+	<string>EyeVoice</string>
+	<key>CFBundleExecutable</key>
+	<string>EyeVoice</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.aleksey.eyevoice</string>
+	<key>CFBundleName</key>
+	<string>EyeVoice</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2.0</string>
+	<key>CFBundleVersion</key>
+	<string>2</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>EyeVoice lists and activates browser tabs to capture the right audio.</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>EyeVoice captures application audio to translate it in real time.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>EyeVoice needs the microphone to translate your voice in real time.</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://seexmgivktuycodxrjhs.supabase.co/storage/v1/object/public/eyevoice-releases/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>g1Te2ffOIEmFWHnZ5FJSB4NUTSwjV0L0b4yplC92CYM=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>21600</integer>
 </dict>
 </plist>

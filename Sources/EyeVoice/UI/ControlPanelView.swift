@@ -34,6 +34,10 @@ struct ControlPanelView: View {
             case .systemAudio: tab = .system
             case .app: tab = .apps
             }
+            if auth.isAuthenticated { state.syncUsageWithAccount() }
+        }
+        .onChange(of: auth.user?.id) { _, userID in
+            if userID != nil { state.syncUsageWithAccount() }
         }
     }
 
@@ -177,7 +181,7 @@ struct ControlPanelView: View {
 
     private var footer: some View {
         VStack(spacing: 10) {
-            HoverScaleButton(disabled: state.apiKey.isEmpty) {
+            HoverScaleButton {
                 state.toggle()
             } label: { hovered in
                 Text(state.isRunning ? loc.stop : loc.start)
@@ -592,7 +596,7 @@ struct ControlPanelView: View {
         case .playing: symbol = "■"
         }
         return Button {
-            previewer.toggle(voice: state.voice, language: state.uiLanguage.rawValue, apiKey: state.apiKey)
+            previewer.toggle(voice: state.voice, language: state.uiLanguage.rawValue)
         } label: {
             Text(symbol)
                 .font(Theme.mono(11, weight: .bold))

@@ -8,6 +8,7 @@ import DemoVideoSection from "@/components/DemoVideoSection";
 import FAQSection from "@/components/FAQSection";
 import HeroSignalField from "@/components/HeroSignalField";
 import MobileHome from "@/components/MobileHome";
+import TypewriterTerminal from "@/components/TypewriterTerminal";
 import {
   ParallaxLayer,
   Reveal,
@@ -91,7 +92,7 @@ export default function Home() {
       <DemoVideoSection />
 
       {/* features */}
-      <section id="features" className="border-t border-line/60">
+      <section id="features" className="overflow-hidden border-t border-line/60">
         <div className="mx-auto max-w-6xl px-6 py-24">
           <Reveal>
             <h2 className="mb-3 text-[12px] uppercase tracking-[0.25em] text-faint">
@@ -103,7 +104,12 @@ export default function Home() {
           </Reveal>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {t.features.items.map((f, i) => (
-              <Reveal key={f.tag} delay={i * 0.08}>
+              <Reveal
+                key={f.tag}
+                delay={(i % 3) * 0.06}
+                direction={i % 2 === 0 ? "left" : "right"}
+                distance={112}
+              >
                 <div className="group h-full rounded-xl border border-line bg-panel/50 p-6 transition-all duration-300 hover:-translate-y-1 hover:border-ink/60">
                   <div className="mb-4 flex items-center justify-between">
                     <span className="text-[11px] text-faint">[{f.tag}]</span>
@@ -135,20 +141,34 @@ export default function Home() {
           </Reveal>
           <Reveal delay={0.15}>
             <div className="mx-auto max-w-2xl rounded-xl border border-line bg-panel/50 p-8 text-[14px] leading-loose">
-              <div>
-                <span className="text-faint">$</span> {t.how.step1}{" "}
-                <span className="text-faint">→</span> {t.how.step1val}
-              </div>
-              <div>
-                <span className="text-faint">$</span> {t.how.step2}{" "}
-                <span className="text-faint">→</span> {t.how.step2val}
-              </div>
-              <div>
-                <span className="text-faint">$</span>{" "}
-                <span className="text-accent">{t.how.step3}</span>{" "}
-                <span className="text-faint">→</span> {t.how.step3val}
-                <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-ink align-middle" />
-              </div>
+              <TypewriterTerminal
+                lines={[
+                  {
+                    segments: [
+                      { text: "$ ", className: "text-faint" },
+                      { text: `${t.how.step1} ` },
+                      { text: "→ ", className: "text-faint" },
+                      { text: t.how.step1val },
+                    ],
+                  },
+                  {
+                    segments: [
+                      { text: "$ ", className: "text-faint" },
+                      { text: `${t.how.step2} ` },
+                      { text: "→ ", className: "text-faint" },
+                      { text: t.how.step2val },
+                    ],
+                  },
+                  {
+                    segments: [
+                      { text: "$ ", className: "text-faint" },
+                      { text: `${t.how.step3} `, className: "text-accent" },
+                      { text: "→ ", className: "text-faint" },
+                      { text: t.how.step3val },
+                    ],
+                  },
+                ]}
+              />
             </div>
           </Reveal>
         </div>

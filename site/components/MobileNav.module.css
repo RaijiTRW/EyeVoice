@@ -11,6 +11,11 @@
   background: rgba(7, 7, 7, 0.96);
 }
 
+.profileRoot {
+  position: sticky;
+  top: 0;
+}
+
 .brand {
   display: inline-flex;
   grid-column: 2;
@@ -56,7 +61,8 @@
 
 .accountLinks a:hover,
 .accountLinks a:focus-visible,
-.accountLinks .signupLink {
+.accountLinks .signupLink,
+.accountLinks .profileLink {
   color: #e8e5de;
 }
 
@@ -152,12 +158,21 @@
   transition: background 180ms ease, color 180ms ease;
 }
 
+button.link {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+}
+
 .link + .link {
   border-top: 1px solid rgba(232, 229, 222, 0.1);
 }
 
 .link:hover,
-.link:focus-visible {
+.link:focus-visible,
+.activeLink {
   background: rgba(255, 79, 163, 0.1);
 }
 
@@ -180,8 +195,148 @@
   font-style: normal;
 }
 
+.profileDock {
+  position: fixed;
+  z-index: 80;
+  right: 0.75rem;
+  bottom: calc(0.7rem + env(safe-area-inset-bottom));
+  left: 0.75rem;
+  display: grid;
+  min-height: 4.65rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.25rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 79, 163, 0.2);
+  border-radius: 1.75rem;
+  padding: 0.32rem;
+  background: rgba(10, 9, 12, 0.76);
+  box-shadow:
+    inset 0 0 28px -3px #000,
+    inset 0 1px 0 rgba(255, 141, 197, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.035),
+    0 0.85rem 2.5rem rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(12px) saturate(150%) contrast(106%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%) contrast(106%);
+  isolation: isolate;
+}
+
+.profileDock::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.008' numOctaves='3' seed='7'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.77'/%3E%3C/svg%3E");
+  background-size: cover;
+  content: "";
+  filter: contrast(160%);
+  mix-blend-mode: soft-light;
+  opacity: 0.077;
+  pointer-events: none;
+}
+
+.profileDockRefraction {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  mix-blend-mode: screen;
+  opacity: 0.56;
+  pointer-events: none;
+}
+
+.profileDockItem {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  z-index: 1;
+  min-height: 3.95rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  overflow: hidden;
+  border: 0;
+  border-radius: 1.4rem;
+  padding: 0 0.35rem;
+  background: transparent;
+  color: rgba(232, 229, 222, 0.5);
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 180ms ease;
+}
+
+.profileDockItem:focus {
+  outline: none;
+}
+
+.profileDockItem:focus-visible {
+  box-shadow: inset 0 0 0 1px rgba(255, 79, 163, 0.34);
+}
+
+.profileDockItemActive {
+  color: #f7f4ee;
+}
+
+.profileDockLens {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 1px solid rgba(255, 79, 163, 0.24);
+  border-radius: inherit;
+  background: rgba(255, 79, 163, 0.085);
+  box-shadow:
+    inset 0 0 20px -8px rgba(255, 79, 163, 0.56),
+    inset 0 1px 0 rgba(255, 141, 197, 0.2),
+    0 0.4rem 1rem rgba(0, 0, 0, 0.22);
+}
+
+.profileDockIcon {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  flex: none;
+  color: currentColor;
+}
+
+.profileDockIcon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.65;
+}
+
+.profileDockItemActive .profileDockIcon {
+  color: #ff4fa3;
+}
+
+.profileDockLabel {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  font-size: 0.55rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .profileDock {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .glyph i {
+    transition: none;
+  }
+
+  .profileDockItem {
     transition: none;
   }
 }

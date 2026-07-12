@@ -5,10 +5,24 @@ import { motion } from "framer-motion";
 import EyeMark from "./EyeMark";
 import { useUser } from "@/lib/useUser";
 import { useLang, type Lang } from "@/lib/i18n";
+import { useProfileSection, type ProfileSection } from "@/lib/profile-section";
 
-export default function Nav({ className = "" }: { className?: string }) {
+export default function Nav({
+  className = "",
+  profileMode = false,
+}: {
+  className?: string;
+  profileMode?: boolean;
+}) {
   const { user, loading } = useUser();
   const { lang, setLang, t } = useLang();
+  const { section, setSection } = useProfileSection();
+
+  const profileSections: Array<[ProfileSection, string]> = [
+    ["plan", t.profile.tabPlan],
+    ["stats", t.profile.tabStats],
+    ["history", t.profile.tabHistory],
+  ];
 
   const langButton = (l: Lang, flag: string, label: string) => (
     <button
@@ -40,15 +54,39 @@ export default function Nav({ className = "" }: { className?: string }) {
           <EyeMark size={20} className="text-accent" /> EYEVOICE
         </Link>
         <nav className="hidden items-center gap-8 text-[12px] uppercase tracking-widest text-faint md:flex">
-          <a href="/#features" className="transition-colors hover:text-ink">
-            {t.nav.features}
-          </a>
-          <a href="/#how" className="transition-colors hover:text-ink">
-            {t.nav.how}
-          </a>
-          <Link href="/download" className="transition-colors hover:text-ink">
-            {t.nav.download}
-          </Link>
+          {profileMode
+            ? profileSections.map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setSection(id)}
+                  className={`relative py-1.5 transition-colors hover:text-ink ${
+                    section === id ? "text-ink" : "text-faint"
+                  }`}
+                >
+                  {label}
+                  {section === id ? (
+                    <motion.span
+                      layoutId="profileHeaderSection"
+                      className="absolute inset-x-0 -bottom-1 h-px bg-accent"
+                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                    />
+                  ) : null}
+                </button>
+              ))
+            : (
+              <>
+                <Link href="/#features" className="transition-colors hover:text-ink">
+                  {t.nav.features}
+                </Link>
+                <Link href="/#how" className="transition-colors hover:text-ink">
+                  {t.nav.how}
+                </Link>
+                <Link href="/download" className="transition-colors hover:text-ink">
+                  {t.nav.download}
+                </Link>
+              </>
+            )}
         </nav>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">

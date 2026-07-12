@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import LivingEyeMark from "./LivingEyeMark";
 import HeroSignalField from "./HeroSignalField";
 import SiteHeader from "./SiteHeader";
 import styles from "./DownloadPage.module.css";
 import { useLang } from "@/lib/i18n";
+
+const MAC_DOWNLOAD_URL =
+  "https://seexmgivktuycodxrjhs.supabase.co/storage/v1/object/public/eyevoice-releases/EyeVoice-latest.dmg";
 
 const subscribeDesktop = (callback: () => void) => {
   const media = window.matchMedia("(min-width: 701px)");
@@ -17,7 +20,29 @@ const subscribeDesktop = (callback: () => void) => {
 const getDesktopSnapshot = () => window.matchMedia("(min-width: 701px)").matches;
 const getDesktopServerSnapshot = () => false;
 
-function PlatformGlyph({ platform }: { platform: "mac" | "windows" | "linux" }) {
+function PlatformGlyph({ platform }: { platform: "mac" | "windows" | "linux" | "ios" | "android" }) {
+  if (platform === "ios") {
+    return (
+      <svg viewBox="0 0 40 40" aria-hidden="true">
+        <path d="M24.4 8.7c1.7-2 1.5-4.2 1.5-4.2s-2.4.1-4.2 2.1c-1.6 1.7-1.4 4-1.4 4s2.4.2 4.1-1.9Z" fill="currentColor" />
+        <path d="M29.4 21c0-4.7 3.9-7 4.1-7.1-2.2-3.3-5.7-3.7-6.9-3.8-2.9-.3-5.7 1.7-7.2 1.7-1.5 0-3.8-1.7-6.3-1.6-3.2 0-6.2 1.9-7.8 4.8-3.4 5.9-.9 14.8 2.5 19.6 1.6 2.4 3.5 5 6 4.9 2.4-.1 3.3-1.6 6.2-1.6 2.9 0 3.7 1.6 6.2 1.5 2.6 0 4.3-2.4 5.8-4.7 1.9-2.8 2.7-5.5 2.8-5.7-.1 0-5.3-2.1-5.4-8Z" fill="currentColor" />
+      </svg>
+    );
+  }
+
+  if (platform === "android") {
+    return (
+      <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <path d="m13.2 8-2.6-3.6M26.8 8l2.6-3.6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        <path d="M9.5 17.2C9.5 11.3 14.2 7 20 7s10.5 4.3 10.5 10.2H9.5Z" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M10 20h20v12.3a3.2 3.2 0 0 1-3.2 3.2H13.2a3.2 3.2 0 0 1-3.2-3.2V20Z" stroke="currentColor" strokeWidth="1.8" />
+        <circle cx="15.2" cy="13.5" r="1.2" fill="currentColor" />
+        <circle cx="24.8" cy="13.5" r="1.2" fill="currentColor" />
+        <path d="M6.5 21v9M33.5 21v9M15 35.5V38M25 35.5V38" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
   if (platform === "windows") {
     return (
       <svg viewBox="0 0 36 36" aria-hidden="true">
@@ -60,12 +85,44 @@ export default function DownloadPage() {
     getDesktopSnapshot,
     getDesktopServerSnapshot,
   );
+  const [desktopMobileOpen, setDesktopMobileOpen] = useState(false);
+  const desktopMobileRef = useRef<HTMLElement>(null);
+  const desktopCueRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!desktopMobileOpen) return;
+
+    const scrollTimer = window.setTimeout(() => {
+      desktopMobileRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 140);
+
+    return () => window.clearTimeout(scrollTimer);
+  }, [desktopMobileOpen]);
+
+  const toggleDesktopMobile = () => {
+    const nextOpen = !desktopMobileOpen;
+    setDesktopMobileOpen(nextOpen);
+
+    if (!nextOpen) {
+      window.setTimeout(() => {
+        desktopCueRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 40);
+    }
+  };
 
   const text = isRussian
     ? {
         eyebrow: "версия для macOS",
         mobileTitle: "Скачать EyeVoice",
-        subtitle: "Выберите платформу. Сейчас доступна версия для компьютеров Mac с Apple Silicon.",
+        subtitle: "Версии для iPhone и Android уже в работе. Скоро они появятся на этой странице.",
+        phoneEyebrow: "EyeVoice для телефона",
+        phoneTitle: "iPhone и Android.",
+        phoneLead: "Мобильные версии готовятся к запуску. Пока оставляем место для будущей загрузки из App Store и Google Play.",
+        phoneStatus: "скоро на телефонах",
+        computerEyebrow: "версия для компьютера",
+        computerLead: "Для Mac с Apple Silicon EyeVoice уже доступен. Windows и Linux находятся в разработке.",
+        ios: "iPhone",
+        android: "Android",
         available: "доступно сейчас",
         coming: "скоро",
         mac: "macOS",
@@ -82,11 +139,27 @@ export default function DownloadPage() {
         selector: "выберите платформу",
         release: "системные требования",
         desktopFoot: "Версии для Windows и Linux находятся в разработке",
+        betaLabel: "инструкция · beta 1.2.0",
+        betaTitle: "Как открыть EyeVoice в первый раз",
+        betaLead: "EyeVoice пока проходит бета-тестирование. На этом этапе при первом запуске macOS может попросить подтвердить открытие приложения — это потребуется сделать только один раз.",
+        betaSteps: [
+          "Перетащите EyeVoice в папку Applications.",
+          "Откройте приложение один раз — macOS покажет предупреждение.",
+          "Откройте Системные настройки → Конфиденциальность и безопасность и нажмите «Всё равно открыть».",
+        ],
       }
     : {
         eyebrow: "version for macOS",
         mobileTitle: "Download EyeVoice",
-        subtitle: "Choose a platform. The version for Mac computers with Apple Silicon is available now.",
+        subtitle: "The iPhone and Android versions are already in development and will appear here soon.",
+        phoneEyebrow: "EyeVoice for mobile",
+        phoneTitle: "iPhone and Android.",
+        phoneLead: "Mobile versions are being prepared for launch. This space is reserved for future App Store and Google Play downloads.",
+        phoneStatus: "coming to mobile",
+        computerEyebrow: "desktop version",
+        computerLead: "EyeVoice is available now for Apple Silicon Macs. Windows and Linux are in development.",
+        ios: "iPhone",
+        android: "Android",
         available: "available now",
         coming: "coming soon",
         mac: "macOS",
@@ -103,11 +176,40 @@ export default function DownloadPage() {
         selector: "choose a platform",
         release: "system requirements",
         desktopFoot: "Windows and Linux versions are currently in development",
+        betaLabel: "install guide · beta 1.2.0",
+        betaTitle: "How to open EyeVoice for the first time",
+        betaLead: "EyeVoice is currently in beta testing. At this stage, macOS may ask you to confirm opening the app on first launch — you will only need to do this once.",
+        betaSteps: [
+          "Drag EyeVoice into the Applications folder.",
+          "Open the app once — macOS will show a warning.",
+          "Open System Settings → Privacy & Security and click “Open Anyway”.",
+        ],
       };
 
   return (
     <main className={styles.page}>
       <SiteHeader />
+      <aside className={styles.betaNotice} aria-labelledby="beta-install-title">
+        <div className={styles.betaNoticeHeader}>
+          <span aria-hidden="true">❗</span>
+          <p>{text.betaLabel}</p>
+          <b>BETA</b>
+        </div>
+        <div className={styles.betaNoticeBody}>
+          <div>
+            <h2 id="beta-install-title">{text.betaTitle}</h2>
+            <p>{text.betaLead}</p>
+          </div>
+          <ol>
+            {text.betaSteps.map((step, index) => (
+              <li key={step}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <p>{step}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </aside>
       <div className={styles.desktopPage}>
         <section className={styles.desktopStage} aria-labelledby="desktop-download-title">
           <div className={styles.desktopSignal} aria-hidden="true">
@@ -133,7 +235,7 @@ export default function DownloadPage() {
                 <span>{text.selector}</span>
                 <span>01 / 03</span>
               </div>
-              <a href="#desktop-release-details" className={styles.desktopMac}>
+              <a href={MAC_DOWNLOAD_URL} className={styles.desktopMac} download>
                 <span className={styles.selectorIndex}>01</span>
                 <PlatformGlyph platform="mac" />
                 <span className={styles.selectorName}>
@@ -159,29 +261,113 @@ export default function DownloadPage() {
             </aside>
           </div>
 
-          <div id="desktop-release-details" className={styles.desktopBottomBar}>
-            <div>
-              <span>{text.release}</span>
-              <b>{text.requirement}</b>
-            </div>
-            <div>
-              <span>ACCOUNT</span>
-              <Link href="/signup">{text.account} ↗</Link>
-            </div>
-          </div>
+          <button
+            ref={desktopCueRef}
+            type="button"
+            className={styles.desktopNextCue}
+            aria-controls="desktop-mobile-downloads"
+            aria-expanded={desktopMobileOpen}
+            aria-label={
+              desktopMobileOpen
+                ? isRussian
+                  ? "Скрыть версии для iPhone и Android"
+                  : "Hide iPhone and Android versions"
+                : isRussian
+                  ? "Показать версии для iPhone и Android"
+                  : "Show iPhone and Android versions"
+            }
+            data-open={desktopMobileOpen}
+            onClick={toggleDesktopMobile}
+          >
+            <span>{desktopMobileOpen ? (isRussian ? "скрыть" : "hide") : isRussian ? "дальше" : "next"}</span>
+            <b>iPhone + Android</b>
+            <i aria-hidden="true" />
+          </button>
+
         </section>
+
+        <div className={styles.desktopMobileDrawer} data-open={desktopMobileOpen} aria-hidden={!desktopMobileOpen}>
+          <div>
+            <section
+              ref={desktopMobileRef}
+              id="desktop-mobile-downloads"
+              className={styles.desktopMobileSection}
+              aria-labelledby="desktop-mobile-title"
+            >
+              <div className={styles.flowDivider} aria-hidden="true" />
+              <div className={styles.desktopMobileInner}>
+                <div className={styles.desktopMobileCopy}>
+                  <span>EV / MOBILE / 02</span>
+                  <h2 id="desktop-mobile-title">{text.phoneTitle}</h2>
+                  <p>{text.phoneLead}</p>
+                </div>
+                <div className={styles.desktopPhoneGrid}>
+                  {(["ios", "android"] as const).map((platform, index) => (
+                    <div className={styles.desktopPhoneCard} key={platform} aria-disabled="true">
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      <PlatformGlyph platform={platform} />
+                      <div>
+                        <b>{platform === "ios" ? text.ios : text.android}</b>
+                        <small>{text.coming}</small>
+                      </div>
+                      <i aria-hidden="true" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <footer id="desktop-release-details" className={styles.desktopBottomBar}>
+          <div>
+            <span>{text.release}</span>
+            <b>{text.requirement}</b>
+          </div>
+          <div>
+            <span>ACCOUNT</span>
+            <Link href="/signup">{text.account} ↗</Link>
+          </div>
+        </footer>
       </div>
 
       <div className={styles.mobilePage}>
         <section className={styles.mobileHero} aria-labelledby="download-title">
           <LivingEyeMark size={56} className={styles.mobileEye} />
-          <p>{text.eyebrow}</p>
+          <p>{text.phoneEyebrow}</p>
           <h1 id="download-title">{text.mobileTitle}</h1>
           <span>{text.subtitle}</span>
         </section>
 
+        <section className={styles.mobilePhonePicker} aria-label={isRussian ? "Загрузка для телефона" : "Mobile downloads"}>
+          {(["ios", "android"] as const).map((platform, index) => (
+            <div className={styles.mobilePhoneCard} key={platform} aria-disabled="true">
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <PlatformGlyph platform={platform} />
+              <div>
+                <b>{platform === "ios" ? text.ios : text.android}</b>
+                <small>{text.coming}</small>
+              </div>
+              <i aria-hidden="true" />
+            </div>
+          ))}
+        </section>
+
+        <div className={styles.mobilePhoneStatus}>
+          <span>{text.phoneStatus}</span>
+          <span>APP STORE / GOOGLE PLAY</span>
+        </div>
+
+        <div className={`${styles.flowDivider} ${styles.mobileFlowDivider}`} aria-hidden="true" />
+
+        <section className={styles.mobileComputerIntro}>
+          <span>{text.computerEyebrow}</span>
+          <h2>{text.mac}</h2>
+          <p>{text.computerLead}</p>
+        </section>
+
         <section className={styles.mobilePlatformPicker} aria-label={isRussian ? "Выбор платформы" : "Platform selection"}>
-          <a href="#mobile-macos-details" className={styles.mobilePlatformActive} aria-label={`${text.mac}: ${text.available}`}>
+          <a href={MAC_DOWNLOAD_URL} className={styles.mobilePlatformActive} aria-label={`${text.mac}: ${text.available}`} download>
             <PlatformGlyph platform="mac" />
             <i aria-hidden="true" />
           </a>

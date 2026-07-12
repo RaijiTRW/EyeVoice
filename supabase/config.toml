@@ -1,0 +1,4 @@
+project_id = "seexmgivktuycodxrjhs"
+
+[functions.realtime-token]
+verify_jwt = true

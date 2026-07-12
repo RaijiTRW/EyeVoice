@@ -1,0 +1,293 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <defs>
+    <linearGradient id="appBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#090A0D"/>
+      <stop offset="0.66" stop-color="#090A0D"/>
+      <stop offset="1" stop-color="#120A10"/>
+    </linearGradient>
+    <linearGradient id="heroBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#171A20"/>
+      <stop offset="0.58" stop-color="#13161B"/>
+      <stop offset="1" stop-color="#1B1119"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF75B8"/>
+      <stop offset="1" stop-color="#FF4F9F"/>
+    </linearGradient>
+    <linearGradient id="progress" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FF75B8"/>
+      <stop offset="1" stop-color="#FF4F9F"/>
+    </linearGradient>
+    <radialGradient id="signalGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#FF4F9F" stop-opacity="0.30"/>
+      <stop offset="0.6" stop-color="#FF4F9F" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#FF4F9F" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="14" stdDeviation="24" flood-color="#000000" flood-opacity="0.34"/>
+    </filter>
+    <filter id="smallShadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+    <filter id="buttonGlow" x="-30%" y="-50%" width="160%" height="220%">
+      <feDropShadow dx="0" dy="5" stdDeviation="10" flood-color="#FF4F9F" flood-opacity="0.22"/>
+    </filter>
+    <clipPath id="windowClip"><rect x="1" y="1" width="1438" height="898" rx="22"/></clipPath>
+    <style>
+      .sans{font-family:"SF Pro",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif}
+      .mono{font-family:"Geist Mono","SFMono-Regular",Consolas,monospace}
+      .primary{fill:#F2F4F7}.secondary{fill:#A9B0BA}.muted{fill:#6F7783}.accentText{fill:#FF4F9F}
+      .eyebrow{font-size:10px;font-weight:600;letter-spacing:1.35px}
+      .body{font-size:14px;font-weight:400}.small{font-size:12px;font-weight:450}
+      .icon{fill:none;stroke:#A9B0BA;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+    </style>
+  </defs>
+
+  <g clip-path="url(#windowClip)">
+    <rect x="1" y="1" width="1438" height="898" rx="22" fill="url(#appBg)"/>
+    <rect x="1" y="1" width="1438" height="52" fill="#17181B"/>
+    <rect x="1" y="52" width="220" height="847" fill="#08090B"/>
+    <line x1="221" y1="52" x2="221" y2="900" stroke="#242830"/>
+    <line x1="1" y1="52" x2="1439" y2="52" stroke="#272A30"/>
+
+    <!-- macOS title bar -->
+    <circle cx="24" cy="26" r="6" fill="#FF5F57"/><circle cx="44" cy="26" r="6" fill="#FEBC2E"/><circle cx="64" cy="26" r="6" fill="#28C840"/>
+    <text x="92" y="31" class="sans secondary" font-size="14" font-weight="600">EyeVoice</text>
+    <g transform="translate(1378 17)" opacity=".72">
+      <path d="M3 7.5h14M3 12.5h14" class="icon"/>
+    </g>
+
+    <!-- sidebar brand -->
+    <g transform="translate(24 78)">
+      <path d="M1 15C7 5 16 1 25 1s18 4 24 14c-6 10-15 14-24 14S7 25 1 15Z" fill="none" stroke="#FF4F9F" stroke-width="2.3"/>
+      <circle cx="25" cy="15" r="5.4" fill="#FF4F9F"/>
+      <text x="62" y="14" class="sans primary" font-size="16" font-weight="750" letter-spacing=".4">EYEVOICE</text>
+      <text x="62" y="29" class="mono muted" font-size="8.5" font-weight="600" letter-spacing="1.4">LIVE TRANSLATION</text>
+    </g>
+
+    <text x="25" y="150" class="mono muted eyebrow">РАБОЧЕЕ ПРОСТРАНСТВО</text>
+
+    <!-- active nav -->
+    <rect x="12" y="168" width="196" height="44" rx="10" fill="#1A1118" stroke="#30202B"/>
+    <rect x="12" y="179" width="2.5" height="22" rx="2" fill="#FF4F9F"/>
+    <g transform="translate(28 181)">
+      <rect x="0" y="0" width="7" height="7" rx="1.5" class="icon" stroke="#F2F4F7"/>
+      <rect x="11" y="0" width="7" height="7" rx="1.5" class="icon" stroke="#F2F4F7"/>
+      <rect x="0" y="11" width="7" height="7" rx="1.5" class="icon" stroke="#F2F4F7"/>
+      <rect x="11" y="11" width="7" height="7" rx="1.5" class="icon" stroke="#F2F4F7"/>
+    </g>
+    <text x="61" y="195" class="sans primary" font-size="13" font-weight="650">Обзор</text>
+
+    <g transform="translate(28 232)">
+      <path d="M1 10h4l3-7 5 14 3-7h5" class="icon"/>
+      <text x="33" y="14" class="sans secondary" font-size="13" font-weight="520">Перевод</text>
+    </g>
+    <g transform="translate(28 278)">
+      <path d="M2 4h18M2 10h18M2 16h12" class="icon"/>
+      <circle cx="18" cy="16" r="2" fill="#A9B0BA"/>
+      <text x="33" y="14" class="sans secondary" font-size="13" font-weight="520">История</text>
+    </g>
+    <g transform="translate(28 324)">
+      <rect x="1" y="3" width="20" height="15" rx="3" class="icon"/>
+      <path d="M1 8h20M5 14h5" class="icon"/>
+      <text x="33" y="14" class="sans secondary" font-size="13" font-weight="520">Тариф</text>
+    </g>
+    <g transform="translate(28 370)">
+      <circle cx="11" cy="11" r="3.5" class="icon"/>
+      <path d="M11 1v3M11 18v3M1 11h3M18 11h3M3.9 3.9 6 6M16 16l2.1 2.1M18.1 3.9 16 6M6 16l-2.1 2.1" class="icon"/>
+      <text x="33" y="14" class="sans secondary" font-size="13" font-weight="520">Настройки</text>
+    </g>
+
+    <!-- sidebar lower status -->
+    <g transform="translate(16 708)">
+      <rect width="188" height="80" rx="12" fill="#101216" stroke="#242830"/>
+      <circle cx="19" cy="21" r="4" fill="#66D19E"/>
+      <text x="31" y="25" class="mono primary" font-size="9.5" font-weight="650" letter-spacing=".5">СИСТЕМА ГОТОВА</text>
+      <text x="16" y="50" class="sans muted" font-size="11">Управление также доступно</text>
+      <text x="16" y="66" class="sans muted" font-size="11">в строке меню macOS</text>
+    </g>
+    <g transform="translate(16 802)">
+      <rect width="188" height="72" rx="12" fill="#101216" stroke="#242830"/>
+      <circle cx="26" cy="27" r="12" fill="#242830"/>
+      <text x="26" y="31" text-anchor="middle" class="sans primary" font-size="10" font-weight="700">AG</text>
+      <text x="47" y="25" class="sans primary" font-size="11.5" font-weight="650">Алексей</text>
+      <text x="47" y="41" class="sans muted" font-size="9.5">Тариф FREE</text>
+      <text x="16" y="61" class="mono muted" font-size="8.5">v1.2.0</text>
+      <text x="171" y="35" text-anchor="middle" class="sans muted" font-size="18">···</text>
+    </g>
+
+    <!-- content header -->
+    <text x="253" y="91" class="sans primary" font-size="26" font-weight="700" letter-spacing="-.45">Добрый вечер, Алексей</text>
+    <text x="253" y="116" class="sans muted" font-size="12.5">Всё готово для следующего перевода</text>
+    <g transform="translate(1120 76)">
+      <rect width="154" height="34" rx="17" fill="#101A16" stroke="#21382E"/>
+      <circle cx="18" cy="17" r="4" fill="#66D19E"/>
+      <text x="31" y="21" class="sans" fill="#9DE5BE" font-size="11.5" font-weight="620">Система готова</text>
+    </g>
+    <g transform="translate(1286 76)">
+      <rect width="122" height="34" rx="17" fill="#14171C" stroke="#272C35"/>
+      <text x="16" y="21" class="mono secondary" font-size="10" font-weight="650">RU</text>
+      <path d="M41 12v10M37 18l4 4 4-4" class="icon"/>
+      <text x="64" y="21" class="sans secondary" font-size="11.5">Помощь</text>
+    </g>
+
+    <!-- hero -->
+    <rect x="253" y="145" width="747" height="278" rx="20" fill="url(#heroBg)" stroke="#2B2F37" filter="url(#shadow)"/>
+    <ellipse cx="878" cy="278" rx="164" ry="150" fill="url(#signalGlow)"/>
+    <text x="285" y="181" class="mono accentText eyebrow">ПЕРЕВОД • ГОТОВ</text>
+    <text x="285" y="229" class="sans primary" font-size="34" font-weight="710" letter-spacing="-.7">Начните перевод</text>
+    <text x="285" y="267" class="sans primary" font-size="34" font-weight="710" letter-spacing="-.7">в один клик</text>
+    <text x="285" y="299" class="sans secondary" font-size="13">Источник, язык и голос уже настроены.</text>
+
+    <!-- hero config chips -->
+    <g transform="translate(285 326)">
+      <rect width="128" height="38" rx="9" fill="#101216" stroke="#2A2E36"/>
+      <text x="12" y="15" class="mono muted" font-size="7.5" font-weight="600" letter-spacing=".8">ИСТОЧНИК</text>
+      <text x="12" y="29" class="sans primary" font-size="11.5" font-weight="620">Comet</text>
+      <circle cx="111" cy="20" r="3" fill="#66D19E"/>
+    </g>
+    <g transform="translate(421 326)">
+      <rect width="158" height="38" rx="9" fill="#101216" stroke="#2A2E36"/>
+      <text x="12" y="15" class="mono muted" font-size="7.5" font-weight="600" letter-spacing=".8">МАРШРУТ</text>
+      <text x="12" y="29" class="sans primary" font-size="11.5" font-weight="620">Авто → Русский</text>
+    </g>
+    <g transform="translate(587 326)">
+      <rect width="108" height="38" rx="9" fill="#101216" stroke="#2A2E36"/>
+      <text x="12" y="15" class="mono muted" font-size="7.5" font-weight="600" letter-spacing=".8">ГОЛОС</text>
+      <text x="12" y="29" class="sans primary" font-size="11.5" font-weight="620">Marin</text>
+    </g>
+
+    <!-- primary CTA -->
+    <g transform="translate(285 375)" filter="url(#buttonGlow)">
+      <rect width="174" height="34" rx="10" fill="url(#accent)"/>
+      <circle cx="20" cy="17" r="7" fill="#11090F" opacity=".9"/>
+      <path d="M18 13.5 24 17l-6 3.5Z" fill="#FF75B8"/>
+      <text x="37" y="21" class="sans" fill="#11090F" font-size="11.5" font-weight="730">Начать перевод</text>
+    </g>
+    <g transform="translate(467 375)">
+      <rect width="117" height="34" rx="10" fill="#15181E" stroke="#30353F"/>
+      <text x="18" y="21" class="sans secondary" font-size="11.5" font-weight="600">Настроить</text>
+      <path d="M92 12l5 5-5 5" class="icon"/>
+    </g>
+
+    <!-- eye / live signal visual -->
+    <g transform="translate(758 201)">
+      <circle cx="90" cy="75" r="76" fill="#111318" stroke="#30212B"/>
+      <circle cx="90" cy="75" r="55" fill="none" stroke="#FF4F9F" stroke-opacity=".12"/>
+      <path d="M35 76c17-25 37-36 55-36s38 11 55 36c-17 25-37 36-55 36S52 101 35 76Z" fill="none" stroke="#FF75B8" stroke-width="2.4"/>
+      <circle cx="90" cy="76" r="15" fill="#FF4F9F"/>
+      <circle cx="85" cy="71" r="4" fill="#FFD1E7" opacity=".9"/>
+      <g stroke="#FF75B8" stroke-width="2" stroke-linecap="round" opacity=".8">
+        <path d="M15 70v12M8 74v4M22 64v24M165 70v12M172 74v4M158 64v24"/>
+      </g>
+    </g>
+
+    <!-- usage card -->
+    <rect x="1016" y="145" width="392" height="278" rx="20" fill="#111318" stroke="#2B2F37" filter="url(#smallShadow)"/>
+    <text x="1046" y="181" class="mono muted eyebrow">ЛИМИТ ЭТОГО МЕСЯЦА</text>
+    <rect x="1307" y="164" width="72" height="26" rx="13" fill="#26131F" stroke="#49233A"/>
+    <text x="1343" y="181" text-anchor="middle" class="mono accentText" font-size="9" font-weight="700">FREE</text>
+    <text x="1046" y="239" class="sans primary" font-size="36" font-weight="730" letter-spacing="-1">29:00</text>
+    <text x="1165" y="239" class="sans muted" font-size="15" font-weight="500">/ 30:00 мин</text>
+    <rect x="1046" y="265" width="333" height="8" rx="4" fill="#252A32"/>
+    <rect x="1046" y="265" width="322" height="8" rx="4" fill="url(#progress)"/>
+    <circle cx="1368" cy="269" r="5" fill="#FF75B8" stroke="#30121F" stroke-width="2"/>
+    <text x="1046" y="299" class="sans secondary" font-size="12">Осталась 1 минута перевода</text>
+    <text x="1379" y="299" text-anchor="end" class="mono muted" font-size="9">97%</text>
+    <line x1="1046" y1="326" x2="1379" y2="326" stroke="#292D34"/>
+    <text x="1046" y="354" class="sans primary" font-size="13" font-weight="620">Нужен больший лимит?</text>
+    <text x="1046" y="375" class="sans muted" font-size="11">На START доступно 5 часов в месяц</text>
+    <g transform="translate(1249 344)">
+      <rect width="130" height="42" rx="10" fill="#181B21" stroke="#343943"/>
+      <text x="16" y="25" class="sans primary" font-size="11.5" font-weight="650">Сравнить планы</text>
+    </g>
+
+    <!-- metric cards -->
+    <g transform="translate(253 443)">
+      <rect width="366" height="108" rx="16" fill="#111318" stroke="#292D34"/>
+      <rect x="20" y="20" width="40" height="40" rx="11" fill="#25131E"/>
+      <path d="M31 45v-9M37 49V32M43 45v-9M49 42v-3" stroke="#FF4F9F" stroke-width="2.2" stroke-linecap="round"/>
+      <text x="76" y="34" class="mono muted eyebrow">ВРЕМЯ ПЕРЕВОДА</text>
+      <text x="76" y="65" class="sans primary" font-size="24" font-weight="700">29 минут</text>
+      <text x="20" y="91" class="sans muted" font-size="10.5">+12 минут за последние 7 дней</text>
+      <path d="M308 81l8-7 8 4 8-14 8 5" fill="none" stroke="#66D19E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(634 443)">
+      <rect width="366" height="108" rx="16" fill="#111318" stroke="#292D34"/>
+      <rect x="20" y="20" width="40" height="40" rx="11" fill="#25131E"/>
+      <path d="M31 40l6 6 12-14" fill="none" stroke="#FF4F9F" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="76" y="34" class="mono muted eyebrow">ЗАВЕРШЁННЫЕ СЕАНСЫ</text>
+      <text x="76" y="65" class="sans primary" font-size="24" font-weight="700">16</text>
+      <text x="20" y="91" class="sans muted" font-size="10.5">3 сеанса на этой неделе</text>
+      <text x="342" y="91" text-anchor="end" class="mono" fill="#9DE5BE" font-size="9" font-weight="650">+18%</text>
+    </g>
+    <g transform="translate(1016 443)">
+      <rect width="392" height="108" rx="16" fill="#111318" stroke="#292D34"/>
+      <rect x="20" y="20" width="40" height="40" rx="11" fill="#25131E"/>
+      <circle cx="40" cy="40" r="9" fill="none" stroke="#FF4F9F" stroke-width="2"/>
+      <path d="M40 34v7l5 3" fill="none" stroke="#FF4F9F" stroke-width="2" stroke-linecap="round"/>
+      <text x="76" y="34" class="mono muted eyebrow">ПОСЛЕДНИЙ СЕАНС</text>
+      <text x="76" y="65" class="sans primary" font-size="24" font-weight="700">51 мин назад</text>
+      <text x="20" y="91" class="sans muted" font-size="10.5">Comet · Авто → Русский</text>
+    </g>
+
+    <!-- recent sessions -->
+    <rect x="253" y="571" width="747" height="298" rx="18" fill="#111318" stroke="#292D34"/>
+    <text x="281" y="609" class="sans primary" font-size="15" font-weight="680">Последние переводы</text>
+    <text x="281" y="630" class="sans muted" font-size="10.5">Три последних завершённых сеанса</text>
+    <text x="964" y="610" text-anchor="end" class="sans accentText" font-size="11" font-weight="620">Вся история →</text>
+    <line x1="281" y1="649" x2="972" y2="649" stroke="#292D34"/>
+
+    <g transform="translate(281 666)">
+      <rect width="42" height="42" rx="11" fill="#25131E"/>
+      <path d="M13 25v-8M18 29V13M23 26V16M28 23v-5" stroke="#FF4F9F" stroke-width="2" stroke-linecap="round"/>
+      <text x="58" y="16" class="sans primary" font-size="12" font-weight="650">Comet</text>
+      <text x="58" y="34" class="sans muted" font-size="10.5">Авто → Русский · Marin</text>
+      <text x="563" y="17" class="mono primary" font-size="10" font-weight="650">01:02</text>
+      <text x="691" y="17" text-anchor="end" class="sans muted" font-size="10.5">51 минуту назад</text>
+    </g>
+    <line x1="339" y1="723" x2="972" y2="723" stroke="#242830"/>
+    <g transform="translate(281 737)">
+      <rect width="42" height="42" rx="11" fill="#171B21"/>
+      <path d="M13 25v-8M18 29V13M23 26V16M28 23v-5" stroke="#A9B0BA" stroke-width="2" stroke-linecap="round"/>
+      <text x="58" y="16" class="sans primary" font-size="12" font-weight="650">Системный звук</text>
+      <text x="58" y="34" class="sans muted" font-size="10.5">Английский → Русский · Echo</text>
+      <text x="563" y="17" class="mono primary" font-size="10" font-weight="650">03:18</text>
+      <text x="691" y="17" text-anchor="end" class="sans muted" font-size="10.5">1 час назад</text>
+    </g>
+    <line x1="339" y1="794" x2="972" y2="794" stroke="#242830"/>
+    <g transform="translate(281 808)">
+      <rect width="42" height="42" rx="11" fill="#171B21"/>
+      <path d="M13 25v-8M18 29V13M23 26V16M28 23v-5" stroke="#A9B0BA" stroke-width="2" stroke-linecap="round"/>
+      <text x="58" y="16" class="sans primary" font-size="12" font-weight="650">Микрофон</text>
+      <text x="58" y="34" class="sans muted" font-size="10.5">Русский → Английский · Ash</text>
+      <text x="563" y="17" class="mono primary" font-size="10" font-weight="650">00:47</text>
+      <text x="691" y="17" text-anchor="end" class="sans muted" font-size="10.5">Вчера, 23:18</text>
+    </g>
+
+    <!-- activity insight -->
+    <rect x="1016" y="571" width="392" height="298" rx="18" fill="#111318" stroke="#292D34"/>
+    <text x="1044" y="609" class="sans primary" font-size="15" font-weight="680">Активность</text>
+    <text x="1044" y="630" class="sans muted" font-size="10.5">Последние 7 дней</text>
+    <text x="1380" y="610" text-anchor="end" class="mono accentText" font-size="10" font-weight="650">+18%</text>
+    <line x1="1044" y1="649" x2="1380" y2="649" stroke="#292D34"/>
+    <g transform="translate(1044 676)">
+      <line x1="0" y1="90" x2="336" y2="90" stroke="#242830"/>
+      <rect x="4" y="70" width="28" height="20" rx="5" fill="#292E36"/>
+      <rect x="54" y="44" width="28" height="46" rx="5" fill="#3A2532"/>
+      <rect x="104" y="62" width="28" height="28" rx="5" fill="#292E36"/>
+      <rect x="154" y="26" width="28" height="64" rx="5" fill="#63304D"/>
+      <rect x="204" y="53" width="28" height="37" rx="5" fill="#3A2532"/>
+      <rect x="254" y="14" width="28" height="76" rx="5" fill="url(#accent)"/>
+      <rect x="304" y="39" width="28" height="51" rx="5" fill="#63304D"/>
+      <g class="mono muted" font-size="8" text-anchor="middle">
+        <text x="18" y="107">ПН</text><text x="68" y="107">ВТ</text><text x="118" y="107">СР</text>
+        <text x="168" y="107">ЧТ</text><text x="218" y="107">ПТ</text><text x="268" y="107">СБ</text><text x="318" y="107">ВС</text>
+      </g>
+    </g>
+    <rect x="1044" y="809" width="336" height="42" rx="10" fill="#171A20" stroke="#2C313A"/>
+    <text x="1060" y="835" class="sans secondary" font-size="11.5">Среднее время сеанса</text>
+    <text x="1364" y="835" text-anchor="end" class="mono primary" font-size="11" font-weight="650">01:49</text>
+  </g>
+  <rect x="1" y="1" width="1438" height="898" rx="22" fill="none" stroke="#3A3C42" stroke-width="2"/>
+</svg>

@@ -13,6 +13,7 @@ final class VoiceRealtimeClient: NSObject, TranslatorClient {
 
     var onAudio: ((Data) -> Void)?
     var onTranscriptDelta: ((String) -> Void)?
+    var onInputActivity: (() -> Void)?
     var onConnected: (() -> Void)?
     var onError: ((String) -> Void)?
     var onSegmentStart: (() -> Void)?
@@ -35,7 +36,9 @@ final class VoiceRealtimeClient: NSObject, TranslatorClient {
         self.task = task
         task.resume()
         receiveLoop()
+    }
 
+    private func configureSession() {
         let instructions = """
         You are a professional simultaneous interpreter. \
         Translate everything you hear into \(targetLanguage). \
@@ -118,8 +121,14 @@ final class VoiceRealtimeClient: NSObject, TranslatorClient {
               let type = json["type"] as? String else { return }
 
         switch type {
-        case "session.created", "session.updated":
+        case "session.created":
+            break
+
+        case "session.updated":
             onConnected?()
+
+        case "input_audio_buffer.speech_started", "conversation.item.input_audio_transcription.delta":
+            onInputActivity?()
 
         case "response.output_audio.delta", "response.audio.delta":
             if let b64 = json["delta"] as? String, let audio = Data(base64Encoded: b64) {
@@ -147,6 +156,14 @@ final class VoiceRealtimeClient: NSObject, TranslatorClient {
 }
 
 extension VoiceRealtimeClient: URLSessionWebSocketDelegate {
+    func urlSession(
+        _ session: URLSession,
+        webSocketTask: URLSessionWebSocketTask,
+        didOpenWithProtocol protocol: String?
+    ) {
+        configureSession()
+    }
+
     func urlSession(
         _ session: URLSession,
         webSocketTask: URLSessionWebSocketTask,

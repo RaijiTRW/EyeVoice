@@ -57,13 +57,26 @@ struct TranslationSessionRecord: Identifiable, Codable, Hashable {
     let targetLanguage: String
 }
 
+/// High-frequency audio levels live outside AppState so they do not invalidate
+/// the entire dashboard 30 times per second.
+final class AudioMeterState: ObservableObject {
+    @Published var input: Float = 0
+    @Published var output: Float = 0
+}
+
+final class AudioOutputSettings: ObservableObject {
+    @Published var volume: Float
+
+    init(volume: Float) {
+        self.volume = min(1, max(0, volume))
+    }
+}
+
 final class AppState: ObservableObject {
     static let shared = AppState()
 
     @Published var isRunning = false
     @Published var status: EngineStatus = .idle
-    @Published var inputLevel: Float = 0
-    @Published var outputLevel: Float = 0
     @Published var transcript: String = ""
     @Published var errorMessage: String?
     @Published var runningApps: [AppInfo] = []
@@ -94,13 +107,24 @@ final class AppState: ObservableObject {
     @Published var voice: String {
         didSet { UserDefaults.standard.set(voice, forKey: "voice") }
     }
-    let apiKey = Secrets.defaultAPIKey
     @Published var uiLanguage: UILanguage {
         didSet { UserDefaults.standard.set(uiLanguage.rawValue, forKey: "uiLang") }
     }
     @Published var mode: TranslationMode {
         didSet { UserDefaults.standard.set(mode.rawValue, forKey: "mode") }
     }
+    @Published var dimmingEnabled: Bool {
+        didSet { UserDefaults.standard.set(dimmingEnabled, forKey: "dimmingEnabled") }
+    }
+    @Published var sourceAudioMuted: Bool {
+        didSet {
+            UserDefaults.standard.set(sourceAudioMuted, forKey: "sourceAudioMuted")
+            appCapturer?.setSourceMuted(sourceAudioMuted)
+        }
+    }
+    @Published var overlayCollapsed = false
+    let meter = AudioMeterState()
+    let outputSettings: AudioOutputSettings
 
     var loc: Strings { uiLanguage == .ru ? .ru : .en }
 
@@ -120,6 +144,8 @@ final class AppState: ObservableObject {
 
     private var client: TranslatorClient?
     private var backlogLogTimer: Timer?
+    private var tokenTask: Task<Void, Never>?
+    private var outputSettingsCancellable: AnyCancellable?
 
     // sound gate: sleep the connection during silence, wake instantly on sound
     private var suspended = false
@@ -132,15 +158,21 @@ final class AppState: ObservableObject {
     private var appCapturer: AppAudioCapturer?
     private var player: AudioPlayer?
     private let overlay = OverlayController()
+    private let inputQueue = DispatchQueue(label: "eyevoice.realtime-input", qos: .userInitiated)
 
     private var lastInputLevelPush = Date.distantPast
     private var lastOutputLevelPush = Date.distantPast
+    private var lastInputTelemetryAt = Date.distantPast
+    private var lastServerInputLogAt = Date.distantPast
+    private var sentAudioBytesSinceTelemetry = 0
     private var activeUsageSegmentStartedAt: Date?
     private var currentSessionBecameActive = false
     private var currentSessionSourceID = "mic"
     private var currentSessionSourceName = "MICROPHONE"
     private var currentSessionSourceLanguage = "Auto"
     private var currentSessionTargetLanguage = "English"
+    private var isSyncingUsage = false
+    private var lifecycleTransitionInProgress = false
 
     init() {
         let d = UserDefaults.standard
@@ -149,6 +181,21 @@ final class AppState: ObservableObject {
         sourceLanguage = d.string(forKey: "sourceLanguage") ?? "Auto"
         voice = d.string(forKey: "voice") ?? "marin"
         uiLanguage = UILanguage(rawValue: d.string(forKey: "uiLang") ?? "ru") ?? .ru
+        dimmingEnabled = d.object(forKey: "dimmingEnabled") as? Bool ?? true
+        sourceAudioMuted = d.bool(forKey: "sourceAudioMuted")
+        let legacyVolume = d.object(forKey: "translationVolume") == nil
+            ? 1
+            : d.float(forKey: "translationVolume")
+        let savedVolume: Float
+        if d.integer(forKey: "translationVolumeScaleVersion") < 2 {
+            // Preserve the exact old loudness: the former 100% is the new 20%.
+            savedVolume = min(1, max(0, legacyVolume / 5))
+            d.set(savedVolume, forKey: "translationVolume")
+            d.set(2, forKey: "translationVolumeScaleVersion")
+        } else {
+            savedVolume = legacyVolume
+        }
+        outputSettings = AudioOutputSettings(volume: savedVolume)
         completedSessionCount = d.integer(forKey: "completedSessionCount")
         totalTranslationSeconds = d.double(forKey: "totalTranslationSeconds")
         lastSessionAt = d.object(forKey: "lastSessionAt") as? Date
@@ -162,6 +209,14 @@ final class AppState: ObservableObject {
         }
         // voice mode is parked until we build our own voice pipeline — sync only for now
         mode = .sync
+
+        outputSettingsCancellable = outputSettings.$volume
+            .removeDuplicates()
+            .sink { [weak self] volume in
+                let clamped = min(1, max(0, volume))
+                UserDefaults.standard.set(clamped, forKey: "translationVolume")
+                self?.player?.setVolume(clamped)
+            }
     }
 
     var availableSources: [CaptureSource] {
@@ -170,6 +225,11 @@ final class AppState: ObservableObject {
 
     var selectedSource: CaptureSource {
         availableSources.first { $0.id == selectedSourceID } ?? .microphone
+    }
+
+    var canMuteSourceAudio: Bool {
+        if case .microphone = selectedSource { return false }
+        return true
     }
 
     func refreshApps() {
@@ -204,7 +264,15 @@ final class AppState: ObservableObject {
     // MARK: - Lifecycle
 
     func toggle() {
+        guard !lifecycleTransitionInProgress else { return }
+        lifecycleTransitionInProgress = true
         isRunning ? stop() : start()
+
+        // Core Audio creates/destroys its process tap on a worker queue. Keep a
+        // second click from starting another tap while that transition settles.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { [weak self] in
+            self?.lifecycleTransitionInProgress = false
+        }
     }
 
     func start() {
@@ -222,14 +290,19 @@ final class AppState: ObservableObject {
         currentSessionTargetLanguage = targetLanguage
         suspended = false
         lastSoundAt = Date()
+        lastInputTelemetryAt = Date()
+        lastServerInputLogAt = .distantPast
+        sentAudioBytesSinceTelemetry = 0
+        overlayCollapsed = false
         status = .connecting
         overlay.show(state: self)
 
         let player = AudioPlayer()
         player.onLevel = { [weak self] level in self?.pushOutputLevel(level) }
+        player.setVolume(outputSettings.volume)
         self.player = player
 
-        connectClient()
+        requestClientAndConnect()
 
         // latency diagnostics: log the playback backlog while running
         backlogLogTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
@@ -242,20 +315,41 @@ final class AppState: ObservableObject {
 
     /// Builds and connects a translator client. Audio arriving before the session
     /// is ready is buffered and flushed on connect, so no speech is lost.
-    private func connectClient() {
+    private func requestClientAndConnect() {
+        clientReady = false
+        tokenTask?.cancel()
+
+        tokenTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let token = try await SupabaseAuthManager.shared.realtimeClientSecret(
+                    mode: self.mode,
+                    targetLanguage: Self.languageCode(for: self.targetLanguage),
+                    voice: self.voice
+                )
+                guard !Task.isCancelled, self.isRunning, !self.suspended else { return }
+                self.connectClient(using: token)
+            } catch {
+                guard !Task.isCancelled else { return }
+                self.fail(error.localizedDescription)
+            }
+        }
+    }
+
+    private func connectClient(using clientSecret: String) {
         clientReady = false
 
         let client: TranslatorClient
         switch mode {
         case .sync:
             client = RealtimeClient(
-                apiKey: apiKey,
+                apiKey: clientSecret,
                 model: Secrets.translateModel,
                 targetLanguage: Self.languageCode(for: targetLanguage)
             )
         case .voice:
             client = VoiceRealtimeClient(
-                apiKey: apiKey,
+                apiKey: clientSecret,
                 model: Secrets.voiceModel,
                 voice: voice,
                 targetLanguage: targetLanguage
@@ -275,6 +369,16 @@ final class AppState: ObservableObject {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.transcript = String((self.transcript + text).suffix(160))
+            }
+        }
+        client.onInputActivity = { [weak self] in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                let now = Date()
+                if now.timeIntervalSince(self.lastServerInputLogAt) > 5 {
+                    self.lastServerInputLogAt = now
+                    Self.logToFile("realtime: server is receiving source speech")
+                }
             }
         }
         client.onSegmentStart = { [weak self] in
@@ -308,9 +412,17 @@ final class AppState: ObservableObject {
 
     /// Called for every captured audio chunk (main thread).
     private func handleChunk(_ data: Data) {
-        guard isRunning, !suspended, client != nil else { return }
+        guard isRunning, !suspended else { return }
         if clientReady {
             client?.sendAudio(data)
+            sentAudioBytesSinceTelemetry += data.count
+            let now = Date()
+            if now.timeIntervalSince(lastInputTelemetryAt) >= 5 {
+                let kilobytes = sentAudioBytesSinceTelemetry / 1024
+                Self.logToFile("input: sent \(kilobytes) KB PCM16 in the last 5s")
+                sentAudioBytesSinceTelemetry = 0
+                lastInputTelemetryAt = now
+            }
         } else {
             resumeBuffer.append(data)
             if resumeBuffer.count > 300 { resumeBuffer.removeFirst() }
@@ -323,6 +435,8 @@ final class AppState: ObservableObject {
         pauseActiveUsageSegment()
         suspended = true
         clientReady = false
+        tokenTask?.cancel()
+        tokenTask = nil
         client?.disconnect()
         client = nil
         resumeBuffer = []
@@ -336,11 +450,13 @@ final class AppState: ObservableObject {
         suspended = false
         status = .connecting
         Self.logToFile("wake: sound detected — reconnecting")
-        connectClient()
+        requestClientAndConnect()
     }
 
     func stop() {
         guard isRunning else { return }
+        tokenTask?.cancel()
+        tokenTask = nil
         pauseActiveUsageSegment()
         if let currentSessionStartedAt, currentSessionBecameActive {
             let finishedAt = Date()
@@ -371,6 +487,7 @@ final class AppState: ObservableObject {
             if let encoded = try? JSONEncoder().encode(sessionHistory) {
                 defaults.set(encoded, forKey: "translationSessionHistory")
             }
+            syncUsageWithAccount()
         }
         currentSessionStartedAt = nil
         currentSessionActiveSeconds = 0
@@ -387,9 +504,24 @@ final class AppState: ObservableObject {
         suspended = false
         clientReady = false
         resumeBuffer = []
-        inputLevel = 0
-        outputLevel = 0
+        meter.input = 0
+        meter.output = 0
         overlay.hide()
+    }
+
+    func syncUsageWithAccount() {
+        guard !sessionHistory.isEmpty, !isSyncingUsage else { return }
+        let records = sessionHistory
+        isSyncingUsage = true
+
+        Task { @MainActor [weak self] in
+            defer { self?.isSyncingUsage = false }
+            do {
+                try await SupabaseAuthManager.shared.uploadTranslationSessions(records)
+            } catch {
+                Self.logToFile("usage sync failed: \(error.localizedDescription)")
+            }
+        }
     }
 
     func currentSessionUsage(at date: Date = Date()) -> TimeInterval {
@@ -446,7 +578,9 @@ final class AppState: ObservableObject {
         }
 
         let onChunk: (Data) -> Void = { [weak self] data in
-            DispatchQueue.main.async { self?.handleChunk(data) }
+            self?.inputQueue.async { [weak self] in
+                self?.handleChunk(data)
+            }
         }
         let onLevel: (Float) -> Void = { [weak self] level in self?.pushInputLevel(level) }
 
@@ -458,13 +592,13 @@ final class AppState: ObservableObject {
                 DispatchQueue.main.async { self?.fail(error) }
             }
         case .systemAudio:
-            let cap = AppAudioCapturer(target: nil)
+            let cap = AppAudioCapturer(target: nil, sourceMuted: sourceAudioMuted)
             appCapturer = cap
             cap.start(onChunk: onChunk, onLevel: onLevel) { [weak self] error in
                 DispatchQueue.main.async { self?.fail(error) }
             }
         case .app(let info):
-            let cap = AppAudioCapturer(target: info)
+            let cap = AppAudioCapturer(target: info, sourceMuted: sourceAudioMuted)
             appCapturer = cap
             cap.start(onChunk: onChunk, onLevel: onLevel) { [weak self] error in
                 DispatchQueue.main.async { self?.fail(error) }
@@ -504,7 +638,7 @@ final class AppState: ObservableObject {
         guard now.timeIntervalSince(lastInputLevelPush) > 0.033 else { return }
         lastInputLevelPush = now
         DispatchQueue.main.async {
-            self.inputLevel = level
+            self.meter.input = level
             self.soundGate(level)
         }
     }
@@ -527,7 +661,7 @@ final class AppState: ObservableObject {
         guard now.timeIntervalSince(lastOutputLevelPush) > 0.033 else { return }
         lastOutputLevelPush = now
         DispatchQueue.main.async {
-            self.outputLevel = level
+            self.meter.output = level
             // translated speech playing counts as activity — don't doze mid-sentence
             if level > self.soundGateLevel {
                 self.lastSoundAt = Date()

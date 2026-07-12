@@ -19,12 +19,18 @@ struct SupabaseUser: Codable, Equatable {
     let id: String
     let email: String?
     let createdAt: String?
+    let userMetadata: SupabaseUserMetadata?
 
     enum CodingKeys: String, CodingKey {
         case id
         case email
         case createdAt = "created_at"
+        case userMetadata = "user_metadata"
     }
+}
+
+struct SupabaseUserMetadata: Codable, Equatable {
+    let plan: String?
 }
 
 private struct SupabaseAuthEnvelope: Decodable {
@@ -64,6 +70,10 @@ private struct SupabaseErrorPayload: Decodable {
         case errorCode = "error_code"
         case code
     }
+}
+
+private struct RealtimeClientSecretResponse: Decodable {
+    let value: String
 }
 
 enum SupabaseAuthError: LocalizedError {
@@ -190,6 +200,91 @@ final class SupabaseAuthManager: ObservableObject {
         clearSession()
     }
 
+    func updatePlan(_ plan: String) async throws {
+        isWorking = true
+        defer { isWorking = false }
+
+        guard var current = session else {
+            throw SupabaseAuthError.invalidResponse
+        }
+        if current.expiresAt.timeIntervalSinceNow < 60 {
+            current = try await refresh(using: current.refreshToken)
+        }
+
+        do {
+            current.user = try await updateUserPlan(plan, accessToken: current.accessToken)
+        } catch let error as SupabaseAuthError where error.statusCode == 401 {
+            current = try await refresh(using: current.refreshToken)
+            current.user = try await updateUserPlan(plan, accessToken: current.accessToken)
+        }
+
+        try persist(current)
+        session = current
+        user = current.user
+    }
+
+    func realtimeClientSecret(
+        mode: TranslationMode,
+        targetLanguage: String,
+        voice: String
+    ) async throws -> String {
+        guard var current = session else {
+            throw SupabaseAuthError.server(
+                message: "Sign in to start translation",
+                code: "not_authenticated",
+                status: 401
+            )
+        }
+
+        if current.expiresAt.timeIntervalSinceNow < 60 {
+            current = try await refresh(using: current.refreshToken)
+            try persist(current)
+            session = current
+            user = current.user
+        }
+
+        do {
+            return try await requestRealtimeClientSecret(
+                mode: mode,
+                targetLanguage: targetLanguage,
+                voice: voice,
+                using: current
+            )
+        } catch let error as SupabaseAuthError where error.statusCode == 401 {
+            current = try await refresh(using: current.refreshToken)
+            try persist(current)
+            session = current
+            user = current.user
+            return try await requestRealtimeClientSecret(
+                mode: mode,
+                targetLanguage: targetLanguage,
+                voice: voice,
+                using: current
+            )
+        }
+    }
+
+    func uploadTranslationSessions(_ records: [TranslationSessionRecord]) async throws {
+        guard !records.isEmpty, var current = session else { return }
+
+        if current.expiresAt.timeIntervalSinceNow < 60 {
+            current = try await refresh(using: current.refreshToken)
+            try persist(current)
+            session = current
+            user = current.user
+        }
+
+        do {
+            try await insertTranslationSessions(records, using: current)
+        } catch let error as SupabaseAuthError where error.statusCode == 401 {
+            current = try await refresh(using: current.refreshToken)
+            try persist(current)
+            session = current
+            user = current.user
+            try await insertTranslationSessions(records, using: current)
+        }
+    }
+
     private func restoreSession() async {
         defer { isCheckingSession = false }
 
@@ -236,6 +331,136 @@ final class SupabaseAuthManager: ObservableObject {
         } catch {
             throw SupabaseAuthError.invalidResponse
         }
+    }
+
+    private func updateUserPlan(_ plan: String, accessToken: String) async throws -> SupabaseUser {
+        let data = try await request(
+            "user",
+            method: "PUT",
+            body: ["data": ["plan": plan]],
+            bearer: accessToken
+        )
+        do {
+            return try decoder.decode(SupabaseUser.self, from: data)
+        } catch {
+            throw SupabaseAuthError.invalidResponse
+        }
+    }
+
+    private func insertTranslationSessions(
+        _ records: [TranslationSessionRecord],
+        using session: StoredAuthSession
+    ) async throws {
+        guard let url = URL(
+            string: "\(SupabaseConfig.projectURL)/rest/v1/translation_sessions?on_conflict=id"
+        ) else {
+            throw SupabaseAuthError.invalidResponse
+        }
+
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let payload: [[String: Any]] = records.map { record in
+            [
+                "id": record.id.uuidString.lowercased(),
+                "user_id": session.user.id,
+                "started_at": dateFormatter.string(from: record.startedAt),
+                "ended_at": dateFormatter.string(from: record.endedAt),
+                "duration_seconds": record.duration,
+                "source_id": record.sourceID,
+                "source_name": record.sourceName,
+                "source_language": record.sourceLanguage,
+                "target_language": record.targetLanguage,
+            ]
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 20
+        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(
+            "resolution=ignore-duplicates,return=minimal",
+            forHTTPHeaderField: "Prefer"
+        )
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw SupabaseAuthError.network(error.localizedDescription)
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw SupabaseAuthError.invalidResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            let errorPayload = try? decoder.decode(SupabaseErrorPayload.self, from: data)
+            let message = errorPayload?.message
+                ?? errorPayload?.msg
+                ?? HTTPURLResponse.localizedString(forStatusCode: http.statusCode)
+            throw SupabaseAuthError.server(
+                message: message,
+                code: errorPayload?.errorCode ?? errorPayload?.code,
+                status: http.statusCode
+            )
+        }
+    }
+
+    private func requestRealtimeClientSecret(
+        mode: TranslationMode,
+        targetLanguage: String,
+        voice: String,
+        using session: StoredAuthSession
+    ) async throws -> String {
+        guard let url = URL(
+            string: "\(SupabaseConfig.projectURL)/functions/v1/realtime-token"
+        ) else {
+            throw SupabaseAuthError.invalidResponse
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 20
+        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "mode": mode.rawValue,
+            "target_language": targetLanguage,
+            "voice": voice,
+        ])
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw SupabaseAuthError.network(error.localizedDescription)
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw SupabaseAuthError.invalidResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            let payload = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            let message = payload?["error"] as? String
+                ?? payload?["message"] as? String
+                ?? HTTPURLResponse.localizedString(forStatusCode: http.statusCode)
+            throw SupabaseAuthError.server(
+                message: message,
+                code: payload?["code"] as? String,
+                status: http.statusCode
+            )
+        }
+
+        guard let secret = try? decoder.decode(RealtimeClientSecretResponse.self, from: data),
+              !secret.value.isEmpty else {
+            throw SupabaseAuthError.invalidResponse
+        }
+        return secret.value
     }
 
     private func request(

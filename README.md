@@ -30,17 +30,39 @@ open build/EyeVoice.app
 При первом запуске система спросит:
 
 - **Микрофон** — для источника MICROPHONE;
-- **Запись экрана** (System Settings → Privacy & Security → Screen & System
-  Audio Recording) — для SYSTEM AUDIO и захвата звука приложений.
-  После выдачи разрешения приложение нужно перезапустить.
+- **Запись системного аудио** — для SYSTEM AUDIO и звука выбранных приложений.
+  EyeVoice использует Core Audio Process Tap и не запрашивает запись экрана.
 
 ## Где что лежит
 
 - `Sources/EyeVoice/Realtime/RealtimeClient.swift` — WebSocket-клиент Realtime API
-- `Sources/EyeVoice/Capture/` — захват: микрофон (AVAudioEngine) и приложения (ScreenCaptureKit)
+- `Sources/EyeVoice/Capture/` — захват: микрофон (AVAudioEngine) и приложения (Core Audio Process Tap)
 - `Sources/EyeVoice/Overlay/` — виньетка и островок
 - `Sources/EyeVoice/UI/ControlPanelView.swift` — панель в menu bar
-- `Sources/EyeVoice/Secrets.swift` — имена моделей; API-ключ читается из переменной окружения `OPENAI_API_KEY`
+- `Sources/EyeVoice/Update/` — Sparkle и мягкие уведомления об обновлениях
+- `Sources/EyeVoice/Secrets.swift` — имена используемых моделей
+
+Постоянный ключ OpenAI хранится только в Supabase Edge Function. Приложение
+получает короткоживущий Realtime-токен после авторизации.
+
+## Выпуск новой версии
+
+```bash
+# Версия и возрастающий внутренний build number
+Scripts/release.sh 1.2.0 2
+
+# После проверки DMG и appcast
+Scripts/publish_release.sh 1.2.0
+```
+
+Сайт всегда скачивает `EyeVoice-latest.dmg`, а Sparkle получает конкретный
+версионный файл из `appcast.xml`. Поэтому для следующего релиза достаточно
+выполнить эти две команды с новой версией и возрастающим build number.
+
+Готовые файлы появляются в `build/releases/`. Для публичного выпуска нужен
+сертификат `Developer ID Application` и профиль `notarytool`, имя которого
+передаётся через `EYEVOICE_NOTARY_PROFILE`. Без него скрипт создаёт тестовый
+DMG, подписанный локальным Apple Development-сертификатом.
 
 ## Иконка
 

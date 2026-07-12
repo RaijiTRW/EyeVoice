@@ -8,15 +8,11 @@ import { useLang } from "@/lib/i18n";
 
 export default function FAQSection({ mobile = false }: { mobile?: boolean }) {
   const { t } = useLang();
-  const [openItems, setOpenItems] = useState<number[]>([]);
+  const [openItem, setOpenItem] = useState<number | null>(null);
   const headingId = mobile ? "mobile-faq-title" : "faq-title";
 
   const toggleItem = (index: number) => {
-    setOpenItems((current) =>
-      current.includes(index)
-        ? current.filter((item) => item !== index)
-        : [...current, index],
-    );
+    setOpenItem((current) => (current === index ? null : index));
   };
 
   return (
@@ -42,12 +38,12 @@ export default function FAQSection({ mobile = false }: { mobile?: boolean }) {
             <Reveal key={item.question} delay={index * 0.04}>
               <div
                 className={styles.item}
-                data-open={openItems.includes(index)}
+                data-open={openItem === index}
               >
                 <button
                   type="button"
                   className={styles.summary}
-                  aria-expanded={openItems.includes(index)}
+                  aria-expanded={openItem === index}
                   aria-controls={`${headingId}-answer-${index}`}
                   onClick={() => toggleItem(index)}
                 >
@@ -56,7 +52,7 @@ export default function FAQSection({ mobile = false }: { mobile?: boolean }) {
                   <i aria-hidden="true" />
                 </button>
                 <AnimatePresence initial={false}>
-                  {openItems.includes(index) ? (
+                  {openItem === index ? (
                     <motion.div
                       id={`${headingId}-answer-${index}`}
                       className={styles.answerClip}

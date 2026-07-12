@@ -11,6 +11,12 @@ import { useLang, type Dict } from "@/lib/i18n";
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
+function getSecurityCooldown(message: string): number | null {
+  if (!message.toLowerCase().includes("for security purposes")) return null;
+  const seconds = message.match(/after\s+(\d+)\s+seconds?/i)?.[1];
+  return seconds ? Number(seconds) + 1 : 3;
+}
+
 function humanizeError(message: string, errors: Dict["auth"]["errors"]): string {
   const m = message.toLowerCase();
   if (m.includes("invalid login credentials")) return errors.invalidCreds;
@@ -69,6 +75,14 @@ export default function AuthForm({ mode }: { mode: "signup" | "login" }) {
       const { data, error } = await supabase.auth.signUp({ email, password });
       setLoading(false);
       if (error) {
+        const cooldown = getSecurityCooldown(error.message);
+        if (cooldown !== null) {
+          setOtp("");
+          setNotice(null);
+          setResendCooldown(cooldown);
+          setDone(true);
+          return;
+        }
         setError(humanizeError(error.message, t.auth.errors));
         return;
       }
@@ -129,6 +143,11 @@ export default function AuthForm({ mode }: { mode: "signup" | "login" }) {
     setResending(false);
 
     if (error) {
+      const cooldown = getSecurityCooldown(error.message);
+      if (cooldown !== null) {
+        setResendCooldown(cooldown);
+        return;
+      }
       setError(humanizeError(error.message, t.auth.errors));
       return;
     }

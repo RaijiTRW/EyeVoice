@@ -35,15 +35,6 @@ final class RealtimeClient: NSObject, TranslatorClient {
         self.task = task
         task.resume()
         receiveLoop()
-
-        sendJSON([
-            "type": "session.update",
-            "session": [
-                "audio": [
-                    "output": ["language": targetLanguage],
-                ],
-            ],
-        ])
     }
 
     func disconnect() {
@@ -96,7 +87,10 @@ final class RealtimeClient: NSObject, TranslatorClient {
               let type = json["type"] as? String else { return }
 
         switch type {
-        case "session.created", "session.updated":
+        case "session.created":
+            break
+
+        case "session.updated":
             onConnected?()
 
         case "session.output_audio.delta":
@@ -127,6 +121,21 @@ final class RealtimeClient: NSObject, TranslatorClient {
 }
 
 extension RealtimeClient: URLSessionWebSocketDelegate {
+    func urlSession(
+        _ session: URLSession,
+        webSocketTask: URLSessionWebSocketTask,
+        didOpenWithProtocol protocol: String?
+    ) {
+        sendJSON([
+            "type": "session.update",
+            "session": [
+                "audio": [
+                    "output": ["language": targetLanguage],
+                ],
+            ],
+        ])
+    }
+
     func urlSession(
         _ session: URLSession,
         webSocketTask: URLSessionWebSocketTask,

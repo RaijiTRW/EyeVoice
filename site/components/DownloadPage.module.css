@@ -11,6 +11,112 @@
   display: none;
 }
 
+.betaNotice {
+  position: relative;
+  z-index: 8;
+  width: min(calc(100% - 2.25rem), 86rem);
+  margin: 1rem auto;
+  overflow: hidden;
+  border: 1px solid rgba(255, 79, 163, 0.5);
+  border-radius: 1.25rem;
+  background:
+    linear-gradient(90deg, rgba(255, 79, 163, 0.1), transparent 38%),
+    rgba(10, 9, 11, 0.96);
+  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.34);
+}
+
+.betaNotice::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 34%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #ff4fa3);
+  content: "";
+}
+
+.betaNoticeHeader {
+  display: grid;
+  min-height: 2.7rem;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgba(242, 242, 242, 0.12);
+  padding: 0 1rem;
+  color: #ff4fa3;
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.betaNoticeHeader p {
+  margin: 0;
+}
+
+.betaNoticeHeader b {
+  border: 1px solid rgba(255, 79, 163, 0.42);
+  padding: 0.28rem 0.45rem;
+  font-size: 0.5rem;
+  font-weight: 600;
+}
+
+.betaNoticeBody {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.1rem 1rem 1.2rem;
+}
+
+.betaNoticeBody h2 {
+  margin: 0;
+  color: #f2f2f2;
+  font-size: 1.25rem;
+  font-weight: 650;
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+}
+
+.betaNoticeBody > div > p {
+  max-width: 42rem;
+  margin: 0.55rem 0 0;
+  color: #8c8c8c;
+  font-size: 0.68rem;
+  line-height: 1.55;
+}
+
+.betaNoticeBody ol {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.betaNoticeBody li {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  align-items: start;
+  gap: 0.7rem;
+  border-top: 1px solid rgba(242, 242, 242, 0.1);
+  padding: 0.62rem 0;
+}
+
+.betaNoticeBody li:last-child {
+  padding-bottom: 0;
+}
+
+.betaNoticeBody li > span {
+  color: #ff4fa3;
+  font-size: 0.55rem;
+  letter-spacing: 0.1em;
+}
+
+.betaNoticeBody li p {
+  margin: 0;
+  color: #c4c4c4;
+  font-size: 0.66rem;
+  line-height: 1.5;
+}
+
 .mobilePage {
   position: relative;
   display: block;
@@ -69,6 +175,166 @@
   color: #8f8f8f;
   font-size: 0.77rem;
   line-height: 1.65;
+}
+
+.mobilePhonePicker {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.8rem 1.125rem 0;
+}
+
+.mobilePhoneCard {
+  position: relative;
+  display: grid;
+  min-height: 8.4rem;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+  border: 1px solid rgba(242, 242, 242, 0.18);
+  border-radius: 1.25rem;
+  padding: 0.85rem;
+  background: rgba(242, 242, 242, 0.035);
+  color: rgba(242, 242, 242, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.mobilePhoneCard:first-child {
+  border-color: rgba(255, 79, 163, 0.58);
+  background: rgba(255, 79, 163, 0.075);
+}
+
+.mobilePhoneCard > span {
+  color: #ff4fa3;
+  font-size: 0.52rem;
+  letter-spacing: 0.12em;
+}
+
+.mobilePhoneCard > svg {
+  width: 3rem;
+  height: 3rem;
+  align-self: center;
+  justify-self: center;
+}
+
+.mobilePhoneCard > div {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.mobilePhoneCard b {
+  font-size: 0.88rem;
+  letter-spacing: -0.025em;
+}
+
+.mobilePhoneCard small {
+  color: #ff4fa3;
+  font-size: 0.48rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.mobilePhoneCard > i,
+.desktopPhoneCard > i {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.8rem;
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 50%;
+  background: #ff4fa3;
+  animation: mobile-platform-wait 2.8s ease-in-out infinite;
+}
+
+.mobilePhoneCard:nth-child(2) > i,
+.desktopPhoneCard:nth-child(2) > i {
+  animation-delay: -1.4s;
+}
+
+@keyframes mobile-platform-wait {
+  0%, 100% { opacity: 0.3; transform: scale(0.72); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+.mobilePhoneStatus {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.125rem 0;
+  color: #666;
+  font-size: 0.48rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.mobilePhoneStatus span:first-child {
+  color: #ff4fa3;
+}
+
+.flowDivider {
+  position: relative;
+  height: 4.5rem;
+  overflow: hidden;
+}
+
+.flowDivider::before {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(242, 242, 242, 0.18) 18%, rgba(255, 79, 163, 0.5) 50%, rgba(242, 242, 242, 0.18) 82%, transparent);
+  content: "";
+}
+
+.flowDivider::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20rem;
+  height: 3rem;
+  background: radial-gradient(ellipse, rgba(255, 79, 163, 0.075), transparent 68%);
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.mobileFlowDivider {
+  z-index: 1;
+  height: 3.8rem;
+  margin-top: 0.35rem;
+}
+
+.mobileComputerIntro {
+  position: relative;
+  z-index: 1;
+  padding: 0 1.125rem 1.2rem;
+}
+
+.mobileComputerIntro > span {
+  color: #ff4fa3;
+  font-size: 0.54rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.mobileComputerIntro h2 {
+  margin: 0.45rem 0 0.55rem;
+  font-size: 2rem;
+  font-weight: 650;
+  letter-spacing: -0.055em;
+}
+
+.mobileComputerIntro p {
+  max-width: 24rem;
+  margin: 0;
+  color: #7d7d7d;
+  font-size: 0.69rem;
+  line-height: 1.55;
 }
 
 .mobilePlatformPicker {
@@ -243,6 +509,97 @@
     rgba(255, 255, 255, 0.025) 5px
   );
   pointer-events: none;
+}
+
+.desktopNextCue {
+  position: absolute;
+  z-index: 6;
+  bottom: 1rem;
+  left: 50%;
+  display: grid;
+  min-width: 17rem;
+  grid-template-columns: auto 1fr 1rem;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-top: 1px solid rgba(242, 242, 242, 0.22);
+  padding: 0.75rem 0.2rem 0.25rem;
+  background: transparent;
+  color: #8a8a8a;
+  cursor: pointer;
+  font: inherit;
+  transform: translateX(-50%);
+  transition: border-color 220ms ease, color 220ms ease;
+}
+
+.desktopNextCue span {
+  color: #ff4fa3;
+  font-size: 0.51rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.desktopNextCue b {
+  font-size: 0.59rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.desktopNextCue i {
+  width: 0.52rem;
+  height: 0.52rem;
+  justify-self: end;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(45deg) translate(-0.08rem, 0.08rem);
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.desktopNextCue:hover,
+.desktopNextCue:focus-visible {
+  border-color: rgba(255, 79, 163, 0.58);
+  color: #f2f2f2;
+}
+
+.desktopNextCue:hover i,
+.desktopNextCue:focus-visible i {
+  transform: rotate(45deg) translate(0.08rem, 0.24rem);
+}
+
+.desktopNextCue[data-open="true"] i {
+  transform: rotate(225deg) translate(-0.08rem, -0.08rem);
+}
+
+.desktopMobileDrawer {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-1.25rem);
+  transition:
+    grid-template-rows 520ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 280ms ease,
+    transform 520ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 520ms;
+  visibility: hidden;
+}
+
+.desktopMobileDrawer > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.desktopMobileDrawer[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  transition-delay: 0s;
+  visibility: visible;
 }
 
 .desktopLayout {
@@ -457,11 +814,11 @@
 }
 
 .desktopBottomBar {
-  position: absolute;
+  position: relative;
   z-index: 6;
-  right: 2rem;
-  bottom: 0;
-  left: 2rem;
+  right: auto;
+  bottom: auto;
+  left: auto;
   display: flex;
   width: min(calc(100% - 4rem), 86rem);
   min-height: 4.5rem;
@@ -496,6 +853,113 @@
 .desktopBottomBar a:hover {
   border-color: #ff4fa3;
   color: #ff4fa3;
+}
+
+.desktopMobileSection {
+  position: relative;
+  scroll-margin-top: 4rem;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(242, 242, 242, 0.1);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    #080808;
+  background-size: 3.4rem 3.4rem;
+}
+
+.desktopMobileSection > .flowDivider {
+  width: min(calc(100% - 4rem), 86rem);
+  height: 4rem;
+  margin-inline: auto;
+}
+
+.desktopMobileInner {
+  display: grid;
+  width: min(calc(100% - 4rem), 62rem);
+  grid-template-columns: minmax(15rem, 0.8fr) minmax(28rem, 1.2fr);
+  align-items: center;
+  gap: clamp(3rem, 7vw, 6rem);
+  margin-inline: auto;
+  padding: 0.6rem 0 4.25rem;
+}
+
+.desktopMobileCopy > span {
+  color: #ff4fa3;
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+}
+
+.desktopMobileCopy h2 {
+  max-width: 9ch;
+  margin: 0.8rem 0 1rem;
+  font-size: clamp(2.4rem, 4.4vw, 4rem);
+  font-weight: 650;
+  line-height: 0.94;
+  letter-spacing: -0.06em;
+}
+
+.desktopMobileCopy p {
+  max-width: 29rem;
+  margin: 0;
+  color: #858585;
+  font-size: 0.72rem;
+  line-height: 1.7;
+}
+
+.desktopPhoneGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.desktopPhoneCard {
+  position: relative;
+  display: grid;
+  min-height: 9.25rem;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  border: 1px solid rgba(242, 242, 242, 0.17);
+  border-radius: 1.1rem;
+  padding: 1rem;
+  background: rgba(242, 242, 242, 0.025);
+  color: rgba(242, 242, 242, 0.68);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.desktopPhoneCard:first-child {
+  border-color: rgba(255, 79, 163, 0.48);
+}
+
+.desktopPhoneCard > span {
+  color: #ff4fa3;
+  font-size: 0.52rem;
+  letter-spacing: 0.12em;
+}
+
+.desktopPhoneCard > svg {
+  width: 2.7rem;
+  height: 2.7rem;
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: center;
+}
+
+.desktopPhoneCard > div {
+  display: grid;
+  align-self: end;
+  gap: 0.35rem;
+}
+
+.desktopPhoneCard b {
+  font-size: 1rem;
+}
+
+.desktopPhoneCard small {
+  color: #707070;
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .nav,
@@ -781,20 +1245,16 @@
 
 @media (max-width: 700px) {
   .page {
-    display: flex;
-    height: 100dvh;
+    display: block;
+    height: auto;
     min-height: 100dvh;
-    flex-direction: column;
-    overflow: hidden;
+    overflow: clip;
   }
 
   .mobilePage {
-    display: grid;
-    flex: 1;
-    min-height: 0;
-    grid-template-rows: auto auto auto 1fr;
-    align-content: start;
-    overflow: hidden;
+    display: block;
+    min-height: calc(100dvh - 4.25rem);
+    overflow: visible;
   }
 
   .mobileHero {
@@ -824,7 +1284,7 @@
   .mobilePlatformPicker {
     grid-template-columns: repeat(3, 4.7rem);
     gap: 0.65rem;
-    padding: 0.35rem 1.125rem 1.55rem;
+    padding: 0.35rem 1.125rem 1.8rem;
   }
 
   .mobilePlatformActive,
@@ -850,7 +1310,6 @@
   }
 
   .mobileFooter {
-    align-self: end;
     gap: 0.35rem;
     padding: 0.8rem 1.125rem max(0.9rem, env(safe-area-inset-bottom));
     font-size: 0.5rem;
@@ -871,6 +1330,36 @@
 @media (min-width: 701px) {
   .page {
     background: #050505;
+  }
+
+  .betaNotice {
+    width: min(calc(100% - 4rem), 86rem);
+    margin-block: 1.25rem;
+  }
+
+  .betaNoticeBody {
+    grid-template-columns: minmax(18rem, 0.8fr) minmax(34rem, 1.2fr);
+    align-items: start;
+    gap: clamp(2rem, 6vw, 6rem);
+    padding: 1.35rem 1.5rem 1.5rem;
+  }
+
+  .betaNoticeBody h2 {
+    max-width: 14ch;
+    font-size: 1.65rem;
+  }
+
+  .betaNoticeBody > div > p {
+    font-size: 0.72rem;
+  }
+
+  .betaNoticeBody li {
+    grid-template-columns: 2.4rem 1fr;
+    padding: 0.7rem 0;
+  }
+
+  .betaNoticeBody li p {
+    font-size: 0.7rem;
   }
 
   .desktopPage {
@@ -1041,5 +1530,30 @@
 
   .desktopIntro h1 {
     font-size: clamp(3rem, 6vw, 4.8rem);
+  }
+
+  .desktopMobileInner {
+    width: min(calc(100% - 4rem), 44rem);
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .desktopMobileCopy {
+    text-align: center;
+  }
+
+  .desktopMobileCopy h2,
+  .desktopMobileCopy p {
+    margin-inline: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desktopMobileDrawer,
+  .desktopNextCue i,
+  .mobilePhoneCard > i,
+  .desktopPhoneCard > i {
+    animation: none;
+    transition: none;
   }
 }

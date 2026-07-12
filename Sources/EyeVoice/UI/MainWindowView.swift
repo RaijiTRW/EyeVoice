@@ -27,15 +27,73 @@ private struct DailyUsagePoint: Identifiable {
     var id: Date { date }
 }
 
+private struct SubscriptionPlan: Identifiable {
+    let id: String
+    let name: String
+    let price: String
+    let allowance: String
+    let features: [String]
+}
+
 struct MainWindowView: View {
     @EnvironmentObject private var state: AppState
     @StateObject private var auth = SupabaseAuthManager.shared
     @StateObject private var avatarStore = ProfileAvatarStore.shared
+    @StateObject private var updates = UpdateManager.shared
     @State private var selection: DashboardSection = .overview
     @State private var isAvatarHovered = false
+    @State private var planUpdateError: String?
     @AppStorage("dashboardProfileName") private var profileName = ""
 
     private var isRussian: Bool { state.uiLanguage == .ru }
+    private var currentPlanID: String {
+        let plan = auth.user?.userMetadata?.plan?.lowercased() ?? "free"
+        return ["free", "start", "pro"].contains(plan) ? plan : "free"
+    }
+
+    private var subscriptionPlans: [SubscriptionPlan] {
+        [
+            SubscriptionPlan(
+                id: "free",
+                name: "FREE",
+                price: copy("0 ₽", "$0"),
+                allowance: copy("30 минут / мес", "30 min / mo"),
+                features: [
+                    copy("Все источники звука", "All audio sources"),
+                    copy("14 языков", "14 languages"),
+                    copy("Обновляется каждый месяц", "Renews every month"),
+                    copy("Без карты", "No card required"),
+                ]
+            ),
+            SubscriptionPlan(
+                id: "start",
+                name: "START",
+                price: copy("1 990 ₽ / мес", "$19 / mo"),
+                allowance: copy("5 часов / мес", "5 hours / mo"),
+                features: [
+                    copy("Всё из FREE", "Everything in FREE"),
+                    copy("Покупка дополнительных часов", "Additional hours available"),
+                    copy("Перенос до 5 часов", "Roll over up to 5 hours"),
+                    copy("Паузы не входят в лимит", "Paused time is not counted"),
+                ]
+            ),
+            SubscriptionPlan(
+                id: "pro",
+                name: "PRO",
+                price: copy("4 990 ₽ / мес", "$49 / mo"),
+                allowance: copy("15 часов / мес", "15 hours / mo"),
+                features: [
+                    copy("Всё из START", "Everything in START"),
+                    copy("Скидка на дополнительные часы", "Discounted additional hours"),
+                    copy("Перенос до 15 часов", "Roll over up to 15 hours"),
+                    copy("Приоритетная поддержка", "Priority support"),
+                ]
+            ),
+        ]
+    }
+    private var currentSubscriptionPlan: SubscriptionPlan {
+        subscriptionPlans.first { $0.id == currentPlanID } ?? subscriptionPlans[0]
+    }
 
     var body: some View {
         Group {
@@ -49,7 +107,18 @@ struct MainWindowView: View {
         }
         .frame(minWidth: 860, minHeight: 580)
         .background(DashboardBackground())
+        .overlay(alignment: .topTrailing) {
+            UpdateBanner(updates: updates)
+                .environmentObject(state)
+                .padding(18)
+        }
         .preferredColorScheme(.dark)
+        .onAppear {
+            if auth.isAuthenticated { state.syncUsageWithAccount() }
+        }
+        .onChange(of: auth.user?.id) { _, userID in
+            if userID != nil { state.syncUsageWithAccount() }
+        }
     }
 
     private var dashboard: some View {
@@ -114,6 +183,22 @@ struct MainWindowView: View {
                     .foregroundColor(Theme.faint)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 8) {
+                    Text(copy("ВЕРСИЯ", "VERSION"))
+                        .tracking(1.1)
+                    Spacer(minLength: 8)
+                    Text(appVersion)
+                        .foregroundColor(Theme.dim)
+                }
+                .font(Theme.mono(8, weight: .medium))
+                .foregroundColor(Theme.faint)
+                .padding(.top, 11)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.07))
+                        .frame(height: 1)
+                }
             }
             .padding(13)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -437,27 +522,22 @@ struct MainWindowView: View {
             )
 
             HStack(alignment: .top, spacing: 14) {
-                planCard(
-                    "FREE",
-                    copy("Для знакомства", "For getting started"),
-                    [copy("Локальный профиль", "Local profile"), copy("Базовая статистика", "Basic statistics"), copy("Перевод из menu bar", "Menu bar translation")],
-                    state: copy("ТЕКУЩИЙ ПЛАН", "CURRENT PLAN"),
-                    current: true
-                )
-                planCard(
-                    "PRO",
-                    copy("Для ежедневной работы", "For daily work"),
-                    [copy("Больше часов перевода", "More translation hours"), copy("История на всех устройствах", "Cross-device history"), copy("Приоритетные модели", "Priority models")],
-                    state: copy("СКОРО", "COMING SOON"),
-                    current: false
-                )
-                planCard(
-                    "TEAM",
-                    copy("Для команд", "For teams"),
-                    [copy("Общие рабочие пространства", "Shared workspaces"), copy("Управление участниками", "Member management"), copy("Документы для бухгалтерии", "Billing documents")],
-                    state: copy("СКОРО", "COMING SOON"),
-                    current: false
-                )
+                ForEach(subscriptionPlans) { plan in
+                    planCard(plan, current: currentPlanID == plan.id)
+                }
+            }
+
+            if let planUpdateError {
+                Text(planUpdateError)
+                    .font(Theme.mono(9))
+                    .foregroundColor(Color(red: 1, green: 0.38, blue: 0.56))
+            } else {
+                Text(copy(
+                    "Выбранный план сохраняется в аккаунте. Платежи и списания пока не подключены.",
+                    "Your selected plan is saved to your account. Payments and charges are not connected yet."
+                ))
+                .font(Theme.mono(9))
+                .foregroundColor(Theme.faint)
             }
         }
     }
@@ -513,7 +593,7 @@ struct MainWindowView: View {
                         .tracking(1.2)
                         .foregroundColor(Theme.faint)
                     Spacer()
-                    Text("FREE")
+                    Text(currentSubscriptionPlan.name)
                         .font(Theme.mono(9, weight: .bold))
                         .foregroundColor(Theme.bg)
                         .padding(.horizontal, 8)
@@ -522,10 +602,13 @@ struct MainWindowView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                 }
                 Spacer()
-                Text(copy("Бесплатный план", "Free plan"))
+                Text(copy(
+                    "Тариф \(currentSubscriptionPlan.name)",
+                    "\(currentSubscriptionPlan.name) plan"
+                ))
                     .font(.system(size: 22, weight: .semibold, design: .rounded))
                     .foregroundColor(Theme.text)
-                Text(copy("Платежей и списаний нет", "No payments or charges"))
+                Text(currentSubscriptionPlan.allowance)
                     .font(Theme.mono(9))
                     .foregroundColor(Theme.dim)
                     .padding(.top, 6)
@@ -643,32 +726,37 @@ struct MainWindowView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func planCard(
-        _ name: String,
-        _ subtitle: String,
-        _ features: [String],
-        state: String,
-        current: Bool
-    ) -> some View {
+    private func planCard(_ plan: SubscriptionPlan, current: Bool) -> some View {
         DashboardSurface(accented: current) {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    Text(name)
+                    Text(plan.name)
                         .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundColor(current ? Theme.accent : Theme.text)
                     Spacer()
-                    Text(state)
+                    Text(current
+                         ? copy("ТЕКУЩИЙ ПЛАН", "CURRENT PLAN")
+                         : plan.allowance.uppercased())
                         .font(Theme.mono(8, weight: .bold))
                         .foregroundColor(current ? Theme.accent : Theme.faint)
+                        .multilineTextAlignment(.trailing)
                 }
-                Text(subtitle)
-                    .font(Theme.mono(10))
-                    .foregroundColor(Theme.dim)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(plan.price)
+                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        .foregroundColor(Theme.text)
+                    Text(plan.allowance)
+                        .font(Theme.mono(9))
+                        .foregroundColor(Theme.dim)
+                }
+
                 Rectangle()
                     .fill(Color.white.opacity(0.09))
                     .frame(height: 1)
+
                 VStack(alignment: .leading, spacing: 11) {
-                    ForEach(features, id: \.self) { feature in
+                    ForEach(plan.features, id: \.self) { feature in
                         HStack(spacing: 9) {
                             Text(current ? "[x]" : "[·]")
                                 .font(Theme.mono(9, weight: .bold))
@@ -676,13 +764,45 @@ struct MainWindowView: View {
                             Text(feature)
                                 .font(Theme.mono(9))
                                 .foregroundColor(Theme.dim)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
-                Spacer(minLength: 6)
+
+                Spacer(minLength: 4)
+
+                Button {
+                    guard !current else { return }
+                    planUpdateError = nil
+                    Task {
+                        do {
+                            try await auth.updatePlan(plan.id)
+                        } catch {
+                            planUpdateError = error.localizedDescription
+                        }
+                    }
+                } label: {
+                    Text(auth.isWorking
+                         ? "• • •"
+                         : current
+                            ? copy("ТЕКУЩИЙ ПЛАН", "CURRENT PLAN")
+                            : copy("ВЫБРАТЬ ПЛАН", "SELECT PLAN"))
+                        .font(Theme.mono(8, weight: .bold))
+                        .foregroundColor(current ? Theme.faint : Theme.text)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 34)
+                        .background(current ? Color.white.opacity(0.025) : Theme.accent.opacity(0.12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .stroke(current ? Color.white.opacity(0.07) : Theme.accent.opacity(0.48), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(current || auth.isWorking)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 275)
+        .frame(maxWidth: .infinity, minHeight: 360)
     }
 
     private func profileField(_ label: String, _ placeholder: String, text: Binding<String>) -> some View {
@@ -827,7 +947,7 @@ struct MainWindowView: View {
     }
 
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1.0"
     }
 
     private var lastSessionText: String {
