@@ -54,8 +54,12 @@ export default function AuthForm({ mode }: { mode: "signup" | "login" }) {
   function destinationAfterAuth() {
     const params = new URLSearchParams(window.location.search);
     const plan = params.get("plan");
+    const section = params.get("section");
     if (params.get("from") === "app" && (plan === "start" || plan === "pro")) {
       return `/profile?from=app&plan=${plan}`;
+    }
+    if (params.get("from") === "app" && section === "limits") {
+      return "/profile?from=app&section=limits";
     }
     return "/profile";
   }
@@ -63,9 +67,13 @@ export default function AuthForm({ mode }: { mode: "signup" | "login" }) {
   function switchAuthDestination() {
     const params = new URLSearchParams(window.location.search);
     const plan = params.get("plan");
+    const section = params.get("section");
     const base = mode === "signup" ? "/login" : "/signup";
     if (params.get("from") === "app" && (plan === "start" || plan === "pro")) {
       return `${base}?from=app&plan=${plan}`;
+    }
+    if (params.get("from") === "app" && section === "limits") {
+      return `${base}?from=app&section=limits`;
     }
     return base;
   }

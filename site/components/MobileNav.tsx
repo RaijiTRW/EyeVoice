@@ -49,6 +49,15 @@ function ProfileIcon({ section }: { section: ProfileSection }) {
     );
   }
 
+  if (section === "limits") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 17.5V9.75A2.75 2.75 0 0 1 6.75 7h10.5A2.75 2.75 0 0 1 20 9.75v7.75" />
+        <path d="M7 14.5h10M8.5 11.5h7M4 17.5h16" />
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M4.5 8h15v10.5a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V8Z" />
@@ -102,8 +111,9 @@ export default function MobileNav({
   ];
   const profileSections: Array<[ProfileSection, string, string]> = [
     ["plan", "01", t.profile.tabPlan],
-    ["stats", "02", t.profile.tabStats],
-    ["history", "03", t.profile.tabHistory],
+    ["limits", "02", t.profile.tabLimits],
+    ["stats", "03", t.profile.tabStats],
+    ["history", "04", t.profile.tabHistory],
   ];
 
   return (

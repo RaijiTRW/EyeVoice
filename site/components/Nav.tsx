@@ -20,6 +20,7 @@ export default function Nav({
 
   const profileSections: Array<[ProfileSection, string]> = [
     ["plan", t.profile.tabPlan],
+    ["limits", t.profile.tabLimits],
     ["stats", t.profile.tabStats],
     ["history", t.profile.tabHistory],
   ];

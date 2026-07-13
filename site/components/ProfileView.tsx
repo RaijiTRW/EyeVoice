@@ -22,12 +22,28 @@ type PaymentRow = {
   payment_method: string | null;
   paid_at: string | null;
   created_at: string;
+  product_type: "plan" | "extra_hours";
+  quantity_hours: number | null;
 };
 
 type SubscriptionRow = {
   plan_id: "start" | "pro";
   status: "active" | "expired" | "canceled";
   current_period_end: string;
+};
+
+type UsageBalance = {
+  plan_id: PlanId;
+  period_start: string;
+  period_end: string;
+  base_seconds: number;
+  rollover_seconds: number;
+  addon_seconds: number;
+  total_seconds: number;
+  used_seconds: number;
+  remaining_seconds: number;
+  extra_hour_price_rub: number | null;
+  can_purchase_extra_hours: boolean;
 };
 
 /** Odometer: on change each character rolls in from above/below, alternating. */
@@ -58,7 +74,7 @@ export default function ProfileView() {
   const router = useRouter();
   const { user, loading } = useUser();
   const { t, lang } = useLang();
-  const { section } = useProfileSection();
+  const { section, setSection } = useProfileSection();
   const [plan, setPlan] = useState<PlanId>("free"); // saved plan
   const [viewPlan, setViewPlan] = useState<PlanId>("free"); // tab being viewed
   const [saving, setSaving] = useState(false);
@@ -69,6 +85,11 @@ export default function ProfileView() {
   const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [checkingPayment, setCheckingPayment] = useState(false);
+  const [usageBalance, setUsageBalance] = useState<UsageBalance | null>(null);
+  const [usageBalanceError, setUsageBalanceError] = useState(false);
+  const [extraHourCount, setExtraHourCount] = useState(1);
+  const [buyingHours, setBuyingHours] = useState(false);
+  const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
 
   const plans = t.plans;
 
@@ -77,9 +98,14 @@ export default function ProfileView() {
 
     const params = new URLSearchParams(window.location.search);
     const requestedPlan = params.get("plan");
+    const requestedSection = params.get("section");
     const cameFromApp = params.get("from") === "app";
     if (cameFromApp && (requestedPlan === "start" || requestedPlan === "pro")) {
       router.replace(`/signup?from=app&plan=${requestedPlan}`);
+      return;
+    }
+    if (cameFromApp && requestedSection === "limits") {
+      router.replace("/signup?from=app&section=limits");
       return;
     }
     router.replace("/login");
@@ -95,12 +121,15 @@ export default function ProfileView() {
       const pendingPaymentId = returnedFromPayment
         ? window.localStorage.getItem("eyevoice_pending_payment")
         : null;
+      let paymentPending = false;
       if (pendingPaymentId) {
         const { data } = await supabase.functions.invoke("confirm-payment", {
           body: { payment_id: pendingPaymentId },
         });
         if (data?.status === "succeeded" || data?.status === "canceled") {
           window.localStorage.removeItem("eyevoice_pending_payment");
+        } else {
+          paymentPending = true;
         }
       }
 
@@ -112,7 +141,7 @@ export default function ProfileView() {
           .maybeSingle<SubscriptionRow>(),
         supabase
           .from("payments")
-          .select("id,plan_id,amount,currency,status,payment_method,paid_at,created_at")
+          .select("id,plan_id,amount,currency,status,payment_method,paid_at,created_at,product_type,quantity_hours")
           .eq("user_id", user!.id)
           .order("created_at", { ascending: false })
           .limit(20),
@@ -130,13 +159,15 @@ export default function ProfileView() {
       if (attempt === 0) setViewPlan(requestedPaidPlan ?? nextPlan);
       else if (active) setViewPlan(nextPlan);
 
-      if (returnedFromPayment && !active && attempt < 12) {
+      if (returnedFromPayment && paymentPending && attempt < 12) {
         setCheckingPayment(true);
         timer = setTimeout(() => void loadBilling(attempt + 1), 2000);
       } else {
         setCheckingPayment(false);
         if (returnedFromPayment) {
-          const cleanUrl = `${window.location.pathname}${window.location.hash}`;
+          setBalanceRefreshKey((value) => value + 1);
+          const requestedSection = new URLSearchParams(window.location.search).get("section");
+          const cleanUrl = `${window.location.pathname}${requestedSection ? `?section=${requestedSection}` : ""}${window.location.hash}`;
           window.history.replaceState({}, "", cleanUrl);
         }
       }
@@ -148,6 +179,28 @@ export default function ProfileView() {
       if (timer) clearTimeout(timer);
     };
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    supabase.functions.invoke<UsageBalance>("usage-balance", { body: {} })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (data) setUsageBalance(data);
+        setUsageBalanceError(Boolean(error));
+      })
+      .catch(() => {
+        if (!cancelled) setUsageBalanceError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, balanceRefreshKey]);
+
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("section");
+    if (requested === "limits") setSection("limits");
+  }, [setSection]);
 
   useEffect(() => {
     let cancelled = false;
@@ -229,6 +282,28 @@ export default function ProfileView() {
     window.location.assign(data.confirmation_url);
   }
 
+  async function buyExtraHours() {
+    if (!usageBalance?.can_purchase_extra_hours) {
+      setViewPlan("start");
+      setSection("plan");
+      return;
+    }
+    setBuyingHours(true);
+    setPaymentError(null);
+    const { data, error } = await supabase.functions.invoke("create-payment", {
+      body: { product_type: "extra_hours", hours: extraHourCount },
+    });
+    setBuyingHours(false);
+    if (error || typeof data?.confirmation_url !== "string") {
+      setPaymentError(t.profile.paymentError);
+      return;
+    }
+    if (typeof data.payment_id === "string") {
+      window.localStorage.setItem("eyevoice_pending_payment", data.payment_id);
+    }
+    window.location.assign(data.confirmation_url);
+  }
+
   async function signOut() {
     setSigningOut(true);
     await supabase.auth.signOut();
@@ -244,6 +319,16 @@ export default function ProfileView() {
       {sub && <div className="mt-0.5 truncate text-[8px] text-faint md:text-[10px]">{sub}</div>}
     </div>
   );
+  const formatBalanceHours = (seconds: number) => {
+    const hours = Math.max(0, seconds) / 3600;
+    return `${hours < 10 ? hours.toFixed(1) : Math.round(hours)} ${t.profile.hoursUnit}`;
+  };
+  const usageProgress = usageBalance && usageBalance.total_seconds > 0
+    ? Math.min(100, (usageBalance.used_seconds / usageBalance.total_seconds) * 100)
+    : 0;
+  const extraTotal = usageBalance?.extra_hour_price_rub
+    ? usageBalance.extra_hour_price_rub * extraHourCount
+    : 0;
 
   return (
     <motion.div
@@ -425,6 +510,133 @@ export default function ProfileView() {
             </div>
           )}
 
+          {section === "limits" && (
+            <div className="flex h-full flex-col gap-4">
+              <div>
+                <div className="text-[9px] uppercase tracking-[0.2em] text-accent">
+                  {t.profile.limitsTitle}
+                </div>
+                <p className="mt-2 max-w-xl text-[10px] leading-relaxed text-faint md:text-[11px]">
+                  {t.profile.limitsLead}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-line bg-bg/45 p-4 md:p-5">
+                {usageBalanceError && (
+                  <div className="mb-3 text-[8px] uppercase tracking-widest text-accent">
+                    {t.profile.balanceUnavailable}
+                  </div>
+                )}
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <div className="text-[8px] uppercase tracking-widest text-faint">
+                      {t.profile.used}
+                    </div>
+                    <div className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
+                      {usageBalance ? formatBalanceHours(usageBalance.used_seconds) : "—"}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[8px] uppercase tracking-widest text-faint">
+                      {t.profile.remaining}
+                    </div>
+                    <div className="mt-1 text-lg font-bold text-accent md:text-xl">
+                      {usageBalance ? formatBalanceHours(usageBalance.remaining_seconds) : "—"}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${usageProgress}%` }}
+                    transition={{ duration: 0.65, ease }}
+                    className="h-full rounded-full bg-accent"
+                  />
+                </div>
+                {usageBalance && (
+                  <div className="mt-4 grid grid-cols-3 gap-2 border-t border-line/60 pt-3">
+                    {[
+                      [t.profile.includedHours, usageBalance.base_seconds],
+                      [t.profile.rolloverHours, usageBalance.rollover_seconds],
+                      [t.profile.extraHours, usageBalance.addon_seconds],
+                    ].map(([label, seconds]) => (
+                      <div key={String(label)} className="min-w-0">
+                        <div className="truncate text-[7px] uppercase tracking-widest text-faint md:text-[8px]">
+                          {label}
+                        </div>
+                        <div className="mt-1 text-[11px] font-bold text-dim md:text-[12px]">
+                          {formatBalanceHours(Number(seconds))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-accent/30 bg-accent/[0.035] p-4 md:p-5">
+                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+                  <div className="max-w-md">
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-ink">
+                      {t.profile.buyHoursTitle}
+                    </div>
+                    <p className="mt-2 text-[9px] leading-relaxed text-faint md:text-[10px]">
+                      {usageBalance?.can_purchase_extra_hours
+                        ? t.profile.buyHoursLead
+                        : t.profile.upgradeForHours}
+                    </p>
+                  </div>
+                  {usageBalance?.can_purchase_extra_hours ? (
+                    <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                      <div className="flex h-10 items-center overflow-hidden rounded-lg border border-line bg-bg/70">
+                        <button
+                          type="button"
+                          onClick={() => setExtraHourCount((value) => Math.max(1, value - 1))}
+                          className="h-full px-3 text-dim transition-colors hover:text-ink"
+                          aria-label="Decrease hours"
+                        >
+                          −
+                        </button>
+                        <span className="min-w-16 text-center text-[10px] font-bold uppercase tracking-widest">
+                          {extraHourCount} {extraHourCount === 1 ? t.profile.hour : t.profile.hours}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setExtraHourCount((value) => Math.min(20, value + 1))}
+                          className="h-full px-3 text-dim transition-colors hover:text-ink"
+                          aria-label="Increase hours"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void buyExtraHours()}
+                        disabled={buyingHours || checkingPayment}
+                        className="btn btn-primary btn-accent h-10 !px-4 !py-0 !text-[9px] disabled:opacity-50"
+                      >
+                        {buyingHours ? "• • •" : `${t.profile.buyHours} · ${extraTotal.toLocaleString(lang === "ru" ? "ru-RU" : "en-US")} ₽`}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setViewPlan("start");
+                        setSection("plan");
+                      }}
+                      className="btn btn-primary btn-accent !px-4 !py-2 !text-[9px]"
+                    >
+                      {t.profile.openPlans}
+                    </button>
+                  )}
+                </div>
+              </div>
+              {paymentError && (
+                <p className="text-[9px] text-accent md:text-[10px]">{paymentError}</p>
+              )}
+            </div>
+          )}
+
           {section === "history" && (
             <div className="h-full">
               <div className="flex items-center justify-between border-b border-line/60 pb-3 text-[11px] md:text-[12px]">
@@ -451,7 +663,9 @@ export default function ProfileView() {
                       <div key={payment.id} className="flex items-center justify-between gap-4 py-3 text-[9px] md:text-[10px]">
                         <div className="min-w-0">
                           <div className="font-bold uppercase tracking-widest text-dim">
-                            EyeVoice {payment.plan_id.toUpperCase()}
+                            {payment.product_type === "extra_hours"
+                              ? `EyeVoice · ${payment.quantity_hours ?? 0} ${t.profile.extraHoursPayment}`
+                              : `EyeVoice ${payment.plan_id.toUpperCase()}`}
                           </div>
                           <div className="mt-1 text-faint">{date}</div>
                         </div>
