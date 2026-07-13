@@ -51,6 +51,25 @@ export default function AuthForm({ mode }: { mode: "signup" | "login" }) {
 
   const isSignup = mode === "signup";
 
+  function destinationAfterAuth() {
+    const params = new URLSearchParams(window.location.search);
+    const plan = params.get("plan");
+    if (params.get("from") === "app" && (plan === "start" || plan === "pro")) {
+      return `/profile?from=app&plan=${plan}`;
+    }
+    return "/profile";
+  }
+
+  function switchAuthDestination() {
+    const params = new URLSearchParams(window.location.search);
+    const plan = params.get("plan");
+    const base = mode === "signup" ? "/login" : "/signup";
+    if (params.get("from") === "app" && (plan === "start" || plan === "pro")) {
+      return `${base}?from=app&plan=${plan}`;
+    }
+    return base;
+  }
+
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const timeout = window.setTimeout(
@@ -87,7 +106,7 @@ export default function AuthForm({ mode }: { mode: "signup" | "login" }) {
         return;
       }
       if (data.session) {
-        router.push("/profile");
+        router.push(destinationAfterAuth());
       } else {
         setOtp("");
         setNotice(null);
@@ -101,7 +120,7 @@ export default function AuthForm({ mode }: { mode: "signup" | "login" }) {
         setError(humanizeError(error.message, t.auth.errors));
         return;
       }
-      router.push("/profile");
+      router.push(destinationAfterAuth());
     }
   }
 
@@ -127,7 +146,7 @@ export default function AuthForm({ mode }: { mode: "signup" | "login" }) {
       setError(t.auth.errors.sessionMissing);
       return;
     }
-    router.push("/profile");
+    router.push(destinationAfterAuth());
   }
 
   async function onResend() {
@@ -345,14 +364,28 @@ export default function AuthForm({ mode }: { mode: "signup" | "login" }) {
         {isSignup ? (
           <>
             {t.auth.haveAccount}{" "}
-            <Link href="/login" className="text-dim underline-offset-4 transition-colors hover:text-ink hover:underline">
+            <Link
+              href="/login"
+              onClick={(event) => {
+                event.preventDefault();
+                router.push(switchAuthDestination());
+              }}
+              className="text-dim underline-offset-4 transition-colors hover:text-ink hover:underline"
+            >
               {t.auth.loginLink}
             </Link>
           </>
         ) : (
           <>
             {t.auth.noAccount}{" "}
-            <Link href="/signup" className="text-dim underline-offset-4 transition-colors hover:text-ink hover:underline">
+            <Link
+              href="/signup"
+              onClick={(event) => {
+                event.preventDefault();
+                router.push(switchAuthDestination());
+              }}
+              className="text-dim underline-offset-4 transition-colors hover:text-ink hover:underline"
+            >
               {t.auth.signupLink}
             </Link>
           </>

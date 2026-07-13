@@ -73,7 +73,16 @@ export default function ProfileView() {
   const plans = t.plans;
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
+    if (loading || user) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const requestedPlan = params.get("plan");
+    const cameFromApp = params.get("from") === "app";
+    if (cameFromApp && (requestedPlan === "start" || requestedPlan === "pro")) {
+      router.replace(`/signup?from=app&plan=${requestedPlan}`);
+      return;
+    }
+    router.replace("/login");
   }, [user, loading, router, plans]);
 
   useEffect(() => {
@@ -113,9 +122,13 @@ export default function ProfileView() {
       const active = subscription?.status === "active" &&
         new Date(subscription.current_period_end) > new Date();
       const nextPlan: PlanId = active ? subscription.plan_id : "free";
+      const requestedPlan = new URLSearchParams(window.location.search).get("plan");
+      const requestedPaidPlan: PlanId | null =
+        requestedPlan === "start" || requestedPlan === "pro" ? requestedPlan : null;
       setPlan(nextPlan);
       setPayments((paymentRows ?? []) as PaymentRow[]);
-      if (attempt === 0 || active) setViewPlan(nextPlan);
+      if (attempt === 0) setViewPlan(requestedPaidPlan ?? nextPlan);
+      else if (active) setViewPlan(nextPlan);
 
       if (returnedFromPayment && !active && attempt < 12) {
         setCheckingPayment(true);
