@@ -1,6 +1,8 @@
+import { getUsageBalance } from "../_shared/usage.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -55,36 +57,9 @@ Deno.serve(async (request) => {
     return json({ error: "Invalid account" }, 401);
   }
 
-  const adminHeaders = {
-    apikey: serviceRoleKey,
-    Authorization: `Bearer ${serviceRoleKey}`,
-  };
-  const subscriptionResponse = await fetch(
-    `${supabaseURL}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(user.id)}&status=eq.active&current_period_end=gt.${encodeURIComponent(new Date().toISOString())}&select=plan_id&limit=1`,
-    { headers: adminHeaders },
-  );
-  const subscriptions = subscriptionResponse.ok ? await subscriptionResponse.json() : [];
-  const plan = subscriptions?.[0]?.plan_id === "pro"
-    ? "pro"
-    : subscriptions?.[0]?.plan_id === "start"
-      ? "start"
-      : "free";
-  const limits = { free: 30 * 60, start: 5 * 60 * 60, pro: 15 * 60 * 60 };
-  const monthStart = new Date();
-  monthStart.setUTCDate(1);
-  monthStart.setUTCHours(0, 0, 0, 0);
-  const usageResponse = await fetch(
-    `${supabaseURL}/rest/v1/translation_sessions?user_id=eq.${encodeURIComponent(user.id)}&ended_at=gte.${encodeURIComponent(monthStart.toISOString())}&select=duration_seconds`,
-    { headers: adminHeaders },
-  );
-  const sessions = usageResponse.ok ? await usageResponse.json() : [];
-  const usedSeconds = sessions.reduce(
-    (total: number, session: { duration_seconds?: number }) =>
-      total + Math.max(0, Number(session.duration_seconds) || 0),
-    0,
-  );
-  if (usedSeconds >= limits[plan]) {
-    return json({ error: "Monthly translation limit reached", plan }, 402);
+  const balance = await getUsageBalance(user.id);
+  if (balance.remaining_seconds <= 0) {
+    return json({ error: "Monthly translation limit reached", plan: balance.plan_id }, 402);
   }
 
   let payload: { mode?: string; target_language?: string; voice?: string };
@@ -146,5 +121,6 @@ Deno.serve(async (request) => {
   return json({
     value,
     expires_at: responseBody.expires_at ?? null,
+    usage: balance,
   });
 });

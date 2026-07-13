@@ -1,14 +1,20 @@
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 export type PlanId = "start" | "pro";
+export type ProductType = "plan" | "extra_hours";
 
 export const paidPlans: Record<PlanId, { amount: string; title: string }> = {
   start: { amount: "1990.00", title: "EyeVoice START — доступ на 1 месяц" },
   pro: { amount: "4990.00", title: "EyeVoice PRO — доступ на 1 месяц" },
+};
+
+export const extraHourPrices: Record<PlanId, number> = {
+  start: 299,
+  pro: 199,
 };
 
 export function json(body: unknown, status = 200) {
@@ -62,4 +68,8 @@ export async function authenticatedUser(authorization: string | null) {
 
 export function isPlanId(value: unknown): value is PlanId {
   return value === "start" || value === "pro";
+}
+
+export function isProductType(value: unknown): value is ProductType {
+  return value === "plan" || value === "extra_hours";
 }

@@ -2,6 +2,7 @@ import {
   adminHeaders,
   authenticatedUser,
   corsHeaders,
+  extraHourPrices,
   isPlanId,
   json,
   paidPlans,
@@ -18,24 +19,60 @@ Deno.serve(async (request) => {
     if (!user) return json({ error: "Authentication required" }, 401);
 
     const payload = await request.json().catch(() => null);
-    const planId = payload?.plan_id;
-    if (!isPlanId(planId)) return json({ error: "Unknown plan" }, 400);
+    const productType = payload?.product_type === "extra_hours" ? "extra_hours" : "plan";
+    let planId = payload?.plan_id;
+    let quantityHours: number | null = null;
+    let amount: string;
+    let title: string;
 
-    const plan = paidPlans[planId];
+    if (productType === "extra_hours") {
+      quantityHours = Number(payload?.hours);
+      if (!Number.isInteger(quantityHours) || quantityHours < 1 || quantityHours > 20) {
+        return json({ error: "Choose between 1 and 20 hours" }, 400);
+      }
+      const now = new Date().toISOString();
+      const subscriptionResponse = await fetch(
+        `${requiredEnv("SUPABASE_URL")}/rest/v1/subscriptions` +
+          `?user_id=eq.${encodeURIComponent(user.id)}` +
+          "&status=eq.active" +
+          `&current_period_start=lte.${encodeURIComponent(now)}` +
+          `&current_period_end=gt.${encodeURIComponent(now)}` +
+          "&select=plan_id&limit=1",
+        { headers: adminHeaders() },
+      );
+      const subscriptions = subscriptionResponse.ok ? await subscriptionResponse.json() : [];
+      planId = subscriptions?.[0]?.plan_id;
+      if (!isPlanId(planId)) {
+        return json({ error: "START or PRO is required for extra hours" }, 403);
+      }
+      const total = extraHourPrices[planId] * quantityHours;
+      amount = `${total}.00`;
+      title = `EyeVoice — дополнительные часы (${quantityHours} ч)`;
+    } else {
+      if (!isPlanId(planId)) return json({ error: "Unknown plan" }, 400);
+      amount = paidPlans[planId].amount;
+      title = paidPlans[planId].title;
+    }
+
     const siteUrl = requiredEnv("SITE_URL").replace(/\/$/, "");
     const idempotenceKey = crypto.randomUUID();
     const response = await yookassaRequest("/payments", {
       method: "POST",
       headers: { "Idempotence-Key": idempotenceKey },
       body: JSON.stringify({
-        amount: { value: plan.amount, currency: "RUB" },
+        amount: { value: amount, currency: "RUB" },
         capture: true,
         confirmation: {
           type: "redirect",
-          return_url: `${siteUrl}/profile?payment=return`,
+          return_url: `${siteUrl}/profile?payment=return${productType === "extra_hours" ? "&section=limits" : ""}`,
         },
-        description: plan.title,
-        metadata: { user_id: user.id, plan_id: planId },
+        description: title,
+        metadata: {
+          user_id: user.id,
+          plan_id: planId,
+          product_type: productType,
+          quantity_hours: quantityHours,
+        },
       }),
     });
     const payment = await response.json().catch(() => null);
@@ -58,7 +95,9 @@ Deno.serve(async (request) => {
           user_id: user.id,
           provider_payment_id: payment.id,
           plan_id: planId,
-          amount: plan.amount,
+          product_type: productType,
+          quantity_hours: quantityHours,
+          amount,
           currency: "RUB",
           status: payment.status ?? "pending",
           provider: "yookassa",
