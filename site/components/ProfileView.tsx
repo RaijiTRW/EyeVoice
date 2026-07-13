@@ -629,8 +629,18 @@ export default function ProfileView() {
     </div>
   );
   const formatBalanceHours = (seconds: number) => {
-    const hours = Math.max(0, seconds) / 3600;
-    return `${hours < 10 ? hours.toFixed(1) : Math.round(hours)} ${t.profile.hoursUnit}`;
+    const safeSeconds = Math.max(0, seconds);
+    if (safeSeconds < 3600) {
+      if (safeSeconds > 0 && safeSeconds < 60) {
+        return `<1 ${t.profile.minutesUnit}`;
+      }
+      const minutes = Math.round((safeSeconds / 60) * 10) / 10;
+      const value = Number.isInteger(minutes) ? String(minutes) : minutes.toFixed(1);
+      return `${value} ${t.profile.minutesUnit}`;
+    }
+    const hours = Math.round((safeSeconds / 3600) * 10) / 10;
+    const value = Number.isInteger(hours) ? String(hours) : hours.toFixed(1);
+    return `${value} ${t.profile.hoursUnit}`;
   };
   const usageProgress = usageBalance && usageBalance.total_seconds > 0
     ? Math.min(100, (usageBalance.used_seconds / usageBalance.total_seconds) * 100)
