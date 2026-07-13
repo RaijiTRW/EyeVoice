@@ -23,6 +23,46 @@ enum AppLinks {
         ]
         return components.url!
     }
+
+    static var limitsURL: URL {
+        var components = URLComponents(
+            url: websiteBaseURL.appendingPathComponent("profile"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [
+            URLQueryItem(name: "from", value: "app"),
+            URLQueryItem(name: "section", value: "limits"),
+        ]
+        return components.url!
+    }
+}
+
+struct UsageBalance: Codable, Equatable {
+    let planID: String
+    let periodStart: String
+    let periodEnd: String
+    let baseSeconds: Double
+    let rolloverSeconds: Double
+    let addonSeconds: Double
+    let totalSeconds: Double
+    let usedSeconds: Double
+    let remainingSeconds: Double
+    let extraHourPriceRUB: Int?
+    let canPurchaseExtraHours: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case planID = "plan_id"
+        case periodStart = "period_start"
+        case periodEnd = "period_end"
+        case baseSeconds = "base_seconds"
+        case rolloverSeconds = "rollover_seconds"
+        case addonSeconds = "addon_seconds"
+        case totalSeconds = "total_seconds"
+        case usedSeconds = "used_seconds"
+        case remainingSeconds = "remaining_seconds"
+        case extraHourPriceRUB = "extra_hour_price_rub"
+        case canPurchaseExtraHours = "can_purchase_extra_hours"
+    }
 }
 
 struct SupabaseUser: Codable, Equatable {
@@ -117,6 +157,7 @@ final class SupabaseAuthManager: ObservableObject {
     @Published private(set) var user: SupabaseUser?
     @Published private(set) var isCheckingSession = true
     @Published private(set) var isWorking = false
+    @Published private(set) var usageBalance: UsageBalance?
 
     private var session: StoredAuthSession?
     private let decoder = JSONDecoder()
@@ -141,6 +182,7 @@ final class SupabaseAuthManager: ObservableObject {
         try persist(newSession)
         session = newSession
         user = newSession.user
+        usageBalance = try? await fetchUsageBalance(using: newSession)
     }
 
     func signUp(email: String, password: String) async throws -> SignUpOutcome {
@@ -159,6 +201,7 @@ final class SupabaseAuthManager: ObservableObject {
             try persist(newSession)
             session = newSession
             user = newSession.user
+            usageBalance = try? await fetchUsageBalance(using: newSession)
             return .signedIn
         }
 
@@ -181,6 +224,7 @@ final class SupabaseAuthManager: ObservableObject {
         try persist(newSession)
         session = newSession
         user = newSession.user
+        usageBalance = try? await fetchUsageBalance(using: newSession)
     }
 
     func resendSignupOTP(email: String) async throws {
@@ -228,6 +272,7 @@ final class SupabaseAuthManager: ObservableObject {
             try persist(current)
             session = current
             user = current.user
+            usageBalance = try? await fetchUsageBalance(using: current)
         } catch {
             // Keep the current session available when the website or network is unavailable.
         }
@@ -293,6 +338,22 @@ final class SupabaseAuthManager: ObservableObject {
             user = current.user
             try await insertTranslationSessions(records, using: current)
         }
+        usageBalance = try? await fetchUsageBalance(using: current)
+    }
+
+    func refreshUsageBalance() async {
+        guard var current = session else { return }
+        do {
+            if current.expiresAt.timeIntervalSinceNow < 60 {
+                current = try await refresh(using: current.refreshToken)
+                try persist(current)
+                session = current
+                user = current.user
+            }
+            usageBalance = try await fetchUsageBalance(using: current)
+        } catch {
+            // Keep the latest known balance while offline.
+        }
     }
 
     private func restoreSession() async {
@@ -321,6 +382,7 @@ final class SupabaseAuthManager: ObservableObject {
             try persist(current)
             session = current
             user = current.user
+            usageBalance = try? await fetchUsageBalance(using: current)
         } catch {
             clearSession()
         }
@@ -459,6 +521,46 @@ final class SupabaseAuthManager: ObservableObject {
         return secret.value
     }
 
+    private func fetchUsageBalance(using session: StoredAuthSession) async throws -> UsageBalance {
+        guard let url = URL(
+            string: "\(SupabaseConfig.projectURL)/functions/v1/usage-balance"
+        ) else {
+            throw SupabaseAuthError.invalidResponse
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 20
+        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = Data("{}".utf8)
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw SupabaseAuthError.network(error.localizedDescription)
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw SupabaseAuthError.invalidResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw SupabaseAuthError.server(
+                message: HTTPURLResponse.localizedString(forStatusCode: http.statusCode),
+                code: nil,
+                status: http.statusCode
+            )
+        }
+        do {
+            return try decoder.decode(UsageBalance.self, from: data)
+        } catch {
+            throw SupabaseAuthError.invalidResponse
+        }
+    }
+
     private func request(
         _ path: String,
         method: String = "POST",
@@ -554,6 +656,7 @@ final class SupabaseAuthManager: ObservableObject {
     private func clearSession() {
         session = nil
         user = nil
+        usageBalance = nil
         try? AuthKeychain.delete()
     }
 }

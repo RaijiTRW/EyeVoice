@@ -47,7 +47,9 @@ struct MainWindowView: View {
 
     private var isRussian: Bool { state.uiLanguage == .ru }
     private var currentPlanID: String {
-        let plan = auth.user?.userMetadata?.plan?.lowercased() ?? "free"
+        let plan = auth.usageBalance?.planID.lowercased()
+            ?? auth.user?.userMetadata?.plan?.lowercased()
+            ?? "free"
         return ["free", "start", "pro"].contains(plan) ? plan : "free"
     }
 
@@ -74,7 +76,6 @@ struct MainWindowView: View {
                     copy("Всё из FREE", "Everything in FREE"),
                     copy("Покупка дополнительных часов", "Additional hours available"),
                     copy("Перенос до 5 часов", "Roll over up to 5 hours"),
-                    copy("Паузы не входят в лимит", "Paused time is not counted"),
                 ]
             ),
             SubscriptionPlan(
@@ -86,7 +87,6 @@ struct MainWindowView: View {
                     copy("Всё из START", "Everything in START"),
                     copy("Скидка на дополнительные часы", "Discounted additional hours"),
                     copy("Перенос до 15 часов", "Roll over up to 15 hours"),
-                    copy("Приоритетная поддержка", "Priority support"),
                 ]
             ),
         ]
@@ -115,6 +115,9 @@ struct MainWindowView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             if auth.isAuthenticated { state.syncUsageWithAccount() }
+        }
+        .task(id: auth.user?.id) {
+            if auth.isAuthenticated { await auth.refreshUsageBalance() }
         }
         .onChange(of: auth.user?.id) { _, userID in
             if userID != nil { state.syncUsageWithAccount() }
@@ -521,6 +524,8 @@ struct MainWindowView: View {
                 copy("Текущий тариф и будущие планы EyeVoice", "Your current plan and upcoming EyeVoice plans")
             )
 
+            usageBalanceCard
+
             HStack(alignment: .top, spacing: 14) {
                 ForEach(subscriptionPlans) { plan in
                     planCard(plan, current: currentPlanID == plan.id)
@@ -539,6 +544,83 @@ struct MainWindowView: View {
                 .font(Theme.mono(9))
                 .foregroundColor(Theme.faint)
             }
+        }
+    }
+
+    private var usageBalanceCard: some View {
+        let balance = auth.usageBalance
+        let total = max(balance?.totalSeconds ?? 0, 1)
+        let progress = min(max((balance?.usedSeconds ?? 0) / total, 0), 1)
+
+        return DashboardSurface(accented: false) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .bottom, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(copy("ИСПОЛЬЗОВАНО", "USED"))
+                            .font(Theme.mono(8, weight: .medium))
+                            .tracking(1)
+                            .foregroundColor(Theme.faint)
+                        Text(balance.map { formatBalanceHours($0.usedSeconds) } ?? "—")
+                            .font(.system(size: 23, weight: .semibold, design: .rounded))
+                            .foregroundColor(Theme.text)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 5) {
+                        Text(copy("ОСТАЛОСЬ", "REMAINING"))
+                            .font(Theme.mono(8, weight: .medium))
+                            .tracking(1)
+                            .foregroundColor(Theme.faint)
+                        Text(balance.map { formatBalanceHours($0.remainingSeconds) } ?? "—")
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .foregroundColor(Theme.accent)
+                    }
+                }
+
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.white.opacity(0.07))
+                        Capsule()
+                            .fill(Theme.accent)
+                            .frame(width: proxy.size.width * progress)
+                    }
+                }
+                .frame(height: 7)
+
+                HStack(spacing: 20) {
+                    balanceMetric(copy("В ТАРИФЕ", "INCLUDED"), balance?.baseSeconds)
+                    balanceMetric(copy("ПЕРЕНЕСЕНО", "ROLLED OVER"), balance?.rolloverSeconds)
+                    balanceMetric(copy("ДОКУПЛЕНО", "PURCHASED"), balance?.addonSeconds)
+                    Spacer(minLength: 0)
+                    Button {
+                        planUpdateError = nil
+                        if !NSWorkspace.shared.open(AppLinks.limitsURL) {
+                            planUpdateError = copy(
+                                "Не удалось открыть сайт EyeVoice.",
+                                "Could not open the EyeVoice website."
+                            )
+                        }
+                    } label: {
+                        Text(balance?.canPurchaseExtraHours == true
+                             ? copy("ДОКУПИТЬ ЧАСЫ  →", "BUY EXTRA HOURS  →")
+                             : copy("ОТКРЫТЬ ЛИМИТЫ  →", "OPEN LIMITS  →"))
+                            .font(Theme.mono(8, weight: .bold))
+                            .foregroundColor(Theme.accent)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func balanceMetric(_ label: String, _ seconds: Double?) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(Theme.mono(7, weight: .medium))
+                .tracking(0.8)
+                .foregroundColor(Theme.faint)
+            Text(seconds.map(formatBalanceHours) ?? "—")
+                .font(Theme.mono(9, weight: .bold))
+                .foregroundColor(Theme.dim)
         }
     }
 
@@ -944,7 +1026,7 @@ struct MainWindowView: View {
     }
 
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.2.1"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.2.2"
     }
 
     private var lastSessionText: String {
@@ -970,6 +1052,14 @@ struct MainWindowView: View {
         let hours = totalMinutes / 60
         let minutes = totalMinutes % 60
         return "\(hours) \(copy("ч", "h")) \(minutes) \(copy("мин", "min"))"
+    }
+
+    private func formatBalanceHours(_ seconds: Double) -> String {
+        let hours = max(0, seconds) / 3600
+        if hours < 10 {
+            return String(format: "%.1f %@", hours, copy("ч", "h"))
+        }
+        return "\(Int(hours.rounded())) \(copy("ч", "h"))"
     }
 
     private var dailyUsagePoints: [DailyUsagePoint] {
