@@ -47,6 +47,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         AppState.shared.stop()
     }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        Task { await SupabaseAuthManager.shared.refreshCurrentUser() }
+    }
+
     func applicationShouldHandleReopen(
         _ sender: NSApplication,
         hasVisibleWindows flag: Bool

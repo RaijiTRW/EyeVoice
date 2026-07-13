@@ -533,8 +533,8 @@ struct MainWindowView: View {
                     .foregroundColor(Color(red: 1, green: 0.38, blue: 0.56))
             } else {
                 Text(copy(
-                    "Выбранный план сохраняется в аккаунте. Платежи и списания пока не подключены.",
-                    "Your selected plan is saved to your account. Payments and charges are not connected yet."
+                    "Выбор и оплата тарифа проходят в защищённом профиле EyeVoice на сайте.",
+                    "Plan selection and payment take place in your secure EyeVoice web profile."
                 ))
                 .font(Theme.mono(9))
                 .foregroundColor(Theme.faint)
@@ -774,17 +774,14 @@ struct MainWindowView: View {
                 Button {
                     guard !current else { return }
                     planUpdateError = nil
-                    Task {
-                        do {
-                            try await auth.updatePlan(plan.id)
-                        } catch {
-                            planUpdateError = error.localizedDescription
-                        }
+                    if !NSWorkspace.shared.open(AppLinks.subscriptionURL(planID: plan.id)) {
+                        planUpdateError = copy(
+                            "Не удалось открыть сайт EyeVoice.",
+                            "Could not open the EyeVoice website."
+                        )
                     }
                 } label: {
-                    Text(auth.isWorking
-                         ? "• • •"
-                         : current
+                    Text(current
                             ? copy("ТЕКУЩИЙ ПЛАН", "CURRENT PLAN")
                             : copy("ВЫБРАТЬ ПЛАН", "SELECT PLAN"))
                         .font(Theme.mono(8, weight: .bold))
@@ -799,7 +796,7 @@ struct MainWindowView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .disabled(current || auth.isWorking)
+                .disabled(current)
             }
         }
         .frame(maxWidth: .infinity, minHeight: 360)
@@ -947,7 +944,7 @@ struct MainWindowView: View {
     }
 
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.2.1"
     }
 
     private var lastSessionText: String {

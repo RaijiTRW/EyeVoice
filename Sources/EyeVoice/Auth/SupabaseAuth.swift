@@ -8,11 +8,21 @@ enum SupabaseConfig {
 }
 
 enum AppLinks {
-    // The website currently runs from the local Next.js project in this workspace.
-    // Replace this base URL with the production domain when it is deployed.
-    static let websiteBaseURL = URL(string: "http://127.0.0.1:3000")!
+    static let websiteBaseURL = URL(string: "https://eyevoicetranslate.com")!
     static let privacyURL = websiteBaseURL.appendingPathComponent("privacy")
     static let termsURL = websiteBaseURL.appendingPathComponent("terms")
+
+    static func subscriptionURL(planID: String) -> URL {
+        var components = URLComponents(
+            url: websiteBaseURL.appendingPathComponent("profile"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [
+            URLQueryItem(name: "from", value: "app"),
+            URLQueryItem(name: "plan", value: planID),
+        ]
+        return components.url!
+    }
 }
 
 struct SupabaseUser: Codable, Equatable {
@@ -200,27 +210,27 @@ final class SupabaseAuthManager: ObservableObject {
         clearSession()
     }
 
-    func updatePlan(_ plan: String) async throws {
-        isWorking = true
-        defer { isWorking = false }
-
-        guard var current = session else {
-            throw SupabaseAuthError.invalidResponse
-        }
-        if current.expiresAt.timeIntervalSinceNow < 60 {
-            current = try await refresh(using: current.refreshToken)
-        }
+    func refreshCurrentUser() async {
+        guard !isWorking, var current = session else { return }
 
         do {
-            current.user = try await updateUserPlan(plan, accessToken: current.accessToken)
-        } catch let error as SupabaseAuthError where error.statusCode == 401 {
-            current = try await refresh(using: current.refreshToken)
-            current.user = try await updateUserPlan(plan, accessToken: current.accessToken)
-        }
+            if current.expiresAt.timeIntervalSinceNow < 60 {
+                current = try await refresh(using: current.refreshToken)
+            }
 
-        try persist(current)
-        session = current
-        user = current.user
+            do {
+                current.user = try await fetchUser(accessToken: current.accessToken)
+            } catch let error as SupabaseAuthError where error.statusCode == 401 {
+                current = try await refresh(using: current.refreshToken)
+                current.user = try await fetchUser(accessToken: current.accessToken)
+            }
+
+            try persist(current)
+            session = current
+            user = current.user
+        } catch {
+            // Keep the current session available when the website or network is unavailable.
+        }
     }
 
     func realtimeClientSecret(
@@ -326,20 +336,6 @@ final class SupabaseAuthManager: ObservableObject {
 
     private func fetchUser(accessToken: String) async throws -> SupabaseUser {
         let data = try await request("user", method: "GET", body: nil, bearer: accessToken)
-        do {
-            return try decoder.decode(SupabaseUser.self, from: data)
-        } catch {
-            throw SupabaseAuthError.invalidResponse
-        }
-    }
-
-    private func updateUserPlan(_ plan: String, accessToken: String) async throws -> SupabaseUser {
-        let data = try await request(
-            "user",
-            method: "PUT",
-            body: ["data": ["plan": plan]],
-            bearer: accessToken
-        )
         do {
             return try decoder.decode(SupabaseUser.self, from: data)
         } catch {
