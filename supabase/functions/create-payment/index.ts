@@ -62,6 +62,7 @@ Deno.serve(async (request) => {
       body: JSON.stringify({
         amount: { value: amount, currency: "RUB" },
         capture: true,
+        save_payment_method: productType === "plan",
         confirmation: {
           type: "redirect",
           return_url: `${siteUrl}/profile?payment=return${productType === "extra_hours" ? "&section=limits" : ""}`,
@@ -78,7 +79,15 @@ Deno.serve(async (request) => {
     const payment = await response.json().catch(() => null);
     if (!response.ok) {
       console.error("YooKassa create payment failed", response.status, payment);
-      return json({ error: "Payment service is temporarily unavailable" }, 502);
+      const providerMessage = typeof payment?.description === "string"
+        ? payment.description
+        : typeof payment?.code === "string"
+          ? payment.code
+          : null;
+      return json({
+        error: providerMessage ?? "Payment service is temporarily unavailable",
+        code: payment?.code ?? null,
+      }, 502);
     }
 
     const confirmationUrl = payment?.confirmation?.confirmation_url;
@@ -114,6 +123,8 @@ Deno.serve(async (request) => {
     return json({ confirmation_url: confirmationUrl, payment_id: payment.id });
   } catch (error) {
     console.error("create-payment failed", error);
-    return json({ error: "Payment service is temporarily unavailable" }, 500);
+    return json({
+      error: error instanceof Error ? error.message : "Payment service is temporarily unavailable",
+    }, 500);
   }
 });

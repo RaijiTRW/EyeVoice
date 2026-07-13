@@ -42,7 +42,11 @@ Deno.serve(async (request) => {
       }
     }
 
-    return json({ status: payment.status, paid: Boolean(payment.paid) });
+    return json({
+      status: payment.status,
+      paid: Boolean(payment.paid),
+      cancellation_reason: payment.cancellation_details?.reason ?? null,
+    });
   } catch (error) {
     console.error("confirm-payment failed", error);
     return json({ error: "Unable to verify payment" }, 500);

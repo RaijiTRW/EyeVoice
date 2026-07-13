@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.usage-balance]
 verify_jwt = true
+
+[functions.manage-subscription]
+verify_jwt = true
+
+[functions.renew-subscriptions]
+verify_jwt = false

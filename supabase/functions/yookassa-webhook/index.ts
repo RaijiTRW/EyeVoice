@@ -19,8 +19,15 @@ type YooPayment = {
     plan_id?: string;
     product_type?: string;
     quantity_hours?: number | string | null;
+    renewal?: boolean | string;
   };
-  payment_method?: { type?: string; id?: string; saved?: boolean };
+  payment_method?: {
+    type?: string;
+    id?: string;
+    saved?: boolean;
+    title?: string;
+    card?: { last4?: string };
+  };
   captured_at?: string;
   created_at?: string;
 };
@@ -104,6 +111,9 @@ Deno.serve(async (request) => {
       } else {
         const periodStart = now;
         const periodEnd = addMonth(periodStart);
+        const savedMethod = payment.payment_method?.saved === true &&
+          typeof payment.payment_method?.id === "string";
+        const isRenewal = payment.metadata?.renewal === true || payment.metadata?.renewal === "true";
 
         const activateResponse = await rest("subscriptions?on_conflict=user_id", {
           method: "POST",
@@ -114,8 +124,17 @@ Deno.serve(async (request) => {
             status: "active",
             current_period_start: periodStart.toISOString(),
             current_period_end: periodEnd.toISOString(),
-            auto_renew: false,
-            provider_payment_method_id: payment.payment_method?.id ?? null,
+            auto_renew: savedMethod || isRenewal,
+            provider_payment_method_id: savedMethod || isRenewal
+              ? payment.payment_method?.id ?? null
+              : null,
+            payment_method_title: payment.payment_method?.title ?? null,
+            card_last4: payment.payment_method?.card?.last4 ?? null,
+            pending_plan_id: null,
+            cancel_at_period_end: false,
+            renewal_attempted_at: isRenewal ? now.toISOString() : null,
+            renewal_lock_until: null,
+            renewal_error: null,
             updated_at: now.toISOString(),
           }),
         });
