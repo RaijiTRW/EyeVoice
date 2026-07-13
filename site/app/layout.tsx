@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
 import { LangProvider } from "@/lib/i18n";
+import AnalyticsTracker from "@/components/AnalyticsTracker";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -22,7 +23,10 @@ export default function RootLayout({
   return (
     <html lang="ru" className={`${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <LangProvider>{children}</LangProvider>
+        <LangProvider>
+          <AnalyticsTracker />
+          {children}
+        </LangProvider>
       </body>
     </html>
   );

@@ -6,6 +6,7 @@ import EyeMark from "./EyeMark";
 import { useUser } from "@/lib/useUser";
 import { useLang, type Lang } from "@/lib/i18n";
 import { useProfileSection, type ProfileSection } from "@/lib/profile-section";
+import { useAdminAccess } from "@/lib/admin-access";
 
 export default function Nav({
   className = "",
@@ -17,12 +18,19 @@ export default function Nav({
   const { user, loading } = useUser();
   const { lang, setLang, t } = useLang();
   const { section, setSection } = useProfileSection();
+  const { isAdmin } = useAdminAccess();
 
   const profileSections: Array<[ProfileSection, string]> = [
     ["plan", t.profile.tabPlan],
     ["limits", t.profile.tabLimits],
     ["stats", t.profile.tabStats],
     ["history", t.profile.tabHistory],
+    ...(isAdmin
+      ? ([
+          ["admin", t.profile.tabAdmin],
+          ["support", t.profile.tabSupport],
+        ] as Array<[ProfileSection, string]>)
+      : []),
   ];
 
   const langButton = (l: Lang, flag: string, label: string) => (
@@ -54,7 +62,7 @@ export default function Nav({
         >
           <EyeMark size={20} className="text-accent" /> EYEVOICE
         </Link>
-        <nav className="hidden items-center gap-8 text-[12px] uppercase tracking-widest text-faint md:flex">
+        <nav className={`hidden items-center text-[12px] uppercase tracking-widest text-faint md:flex ${isAdmin && profileMode ? "gap-5" : "gap-8"}`}>
           {profileMode
             ? profileSections.map(([id, label]) => (
                 <button

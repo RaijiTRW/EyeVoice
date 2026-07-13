@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-export type ProfileSection = "plan" | "limits" | "stats" | "history";
+export type ProfileSection = "plan" | "limits" | "stats" | "history" | "admin" | "support";
 
 type ProfileSectionState = {
   section: ProfileSection;
@@ -19,7 +19,10 @@ export function ProfileSectionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("section");
-    if (requested === "limits" || requested === "stats" || requested === "history") {
+    if (
+      requested === "limits" || requested === "stats" || requested === "history" ||
+      requested === "admin" || requested === "support"
+    ) {
       const timer = window.setTimeout(() => setSection(requested), 0);
       return () => window.clearTimeout(timer);
     }

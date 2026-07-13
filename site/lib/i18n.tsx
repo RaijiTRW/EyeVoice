@@ -231,6 +231,8 @@ const ru = {
     tabLimits: "лимиты",
     tabStats: "статистика",
     tabHistory: "платежи",
+    tabAdmin: "аналитика",
+    tabSupport: "поддержка",
     chart: {
       title: "часы перевода",
       day: "день",
@@ -561,6 +563,8 @@ const en: typeof ru = {
     tabLimits: "limits",
     tabStats: "statistics",
     tabHistory: "payments",
+    tabAdmin: "analytics",
+    tabSupport: "support",
     chart: {
       title: "translation hours",
       day: "day",

@@ -11,6 +11,9 @@ import { useLang } from "@/lib/i18n";
 import type { PlanId } from "@/lib/plans";
 import { useProfileSection } from "@/lib/profile-section";
 import BillingModal, { type BillingModalTone } from "./BillingModal";
+import AdminDashboard from "./AdminDashboard";
+import AdminSupportPlaceholder from "./AdminSupportPlaceholder";
+import { useAdminAccess } from "@/lib/admin-access";
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
@@ -111,6 +114,7 @@ export default function ProfileView() {
   const { user, loading } = useUser();
   const { t, lang } = useLang();
   const { section, setSection } = useProfileSection();
+  const { isAdmin, loading: adminLoading } = useAdminAccess();
   const [plan, setPlan] = useState<PlanId>("free"); // saved plan
   const [viewPlan, setViewPlan] = useState<PlanId>("free"); // tab being viewed
   const [saving, setSaving] = useState(false);
@@ -367,6 +371,12 @@ export default function ProfileView() {
     const requested = new URLSearchParams(window.location.search).get("section");
     if (requested === "limits") setSection("limits");
   }, [setSection]);
+
+  useEffect(() => {
+    if (!adminLoading && !isAdmin && (section === "admin" || section === "support")) {
+      setSection("plan");
+    }
+  }, [adminLoading, isAdmin, section, setSection]);
 
   useEffect(() => {
     let cancelled = false;
@@ -701,8 +711,10 @@ export default function ProfileView() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6, ease }}
-      className={`mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-[5.9rem] pt-1 md:min-h-0 md:px-6 md:py-5 ${
-        section === "stats" ? "min-h-dvh" : ""
+      className={`mx-auto flex w-full flex-1 flex-col px-4 pb-[5.9rem] pt-1 md:min-h-0 md:px-6 md:py-5 ${
+        isAdmin && (section === "admin" || section === "support") ? "max-w-6xl" : "max-w-3xl"
+      } ${
+        section === "stats" || section === "admin" || section === "support" ? "min-h-dvh" : ""
       }`}
     >
       <div className="flex flex-1 flex-col rounded-xl border border-line bg-panel/60 md:min-h-0 md:overflow-hidden">
@@ -1104,6 +1116,10 @@ export default function ProfileView() {
               )}
             </div>
           )}
+
+          {section === "admin" && isAdmin && <AdminDashboard />}
+
+          {section === "support" && isAdmin && <AdminSupportPlaceholder />}
         </motion.div>
       </div>
     </motion.div>

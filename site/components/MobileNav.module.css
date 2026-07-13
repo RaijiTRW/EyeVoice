@@ -234,6 +234,28 @@ button.link {
   pointer-events: none;
 }
 
+.profileDockAdmin {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.12rem;
+}
+
+.profileDockAdmin .profileDockItem {
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-inline: 0.12rem;
+}
+
+.profileDockAdmin .profileDockIcon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.profileDockAdmin .profileDockLabel {
+  max-width: 100%;
+  font-size: 0.39rem;
+  letter-spacing: 0.035em;
+}
+
 .profileDockRefraction {
   position: absolute;
   z-index: 0;

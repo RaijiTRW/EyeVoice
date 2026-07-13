@@ -9,6 +9,7 @@ import styles from "./MobileNav.module.css";
 import { useLang } from "@/lib/i18n";
 import { useProfileSection, type ProfileSection } from "@/lib/profile-section";
 import { useUser } from "@/lib/useUser";
+import { useAdminAccess } from "@/lib/admin-access";
 
 const drawerMotion: Variants = {
   closed: {
@@ -31,6 +32,23 @@ const itemMotion: Variants = {
 };
 
 function ProfileIcon({ section }: { section: ProfileSection }) {
+  if (section === "admin") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 19V9M10 19V5M16 19v-7M22 19V3" />
+        <path d="M2.5 19.5h20" />
+      </svg>
+    );
+  }
+
+  if (section === "support") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 16.5A7 7 0 1 1 19 16v2.5a2 2 0 0 1-2 2h-3" />
+        <path d="M5 12.5H3.5v4H6M19 12.5h1.5v4H18" />
+      </svg>
+    );
+  }
   if (section === "plan") {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -76,6 +94,7 @@ export default function MobileNav({
   const { lang, setLang, t } = useLang();
   const { user, loading } = useUser();
   const { section, setSection } = useProfileSection();
+  const { isAdmin } = useAdminAccess();
   const [open, setOpen] = useState(false);
   const drawerId = useId();
   const headerRef = useRef<HTMLElement>(null);
@@ -114,6 +133,12 @@ export default function MobileNav({
     ["limits", "02", t.profile.tabLimits],
     ["stats", "03", t.profile.tabStats],
     ["history", "04", t.profile.tabHistory],
+    ...(isAdmin
+      ? ([
+          ["admin", "05", t.profile.tabAdmin],
+          ["support", "06", t.profile.tabSupport],
+        ] as Array<[ProfileSection, string, string]>)
+      : []),
   ];
 
   return (
@@ -193,7 +218,7 @@ export default function MobileNav({
 
       {profileMode && (
         <nav
-          className={styles.profileDock}
+          className={`${styles.profileDock} ${isAdmin ? styles.profileDockAdmin : ""}`}
           aria-label={lang === "ru" ? "Разделы профиля" : "Profile sections"}
         >
           <svg
