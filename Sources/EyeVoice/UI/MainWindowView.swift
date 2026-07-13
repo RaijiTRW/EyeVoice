@@ -119,6 +119,10 @@ struct MainWindowView: View {
         .task(id: auth.user?.id) {
             if auth.isAuthenticated { await auth.refreshUsageBalance() }
         }
+        .task(id: paymentTaskID) {
+            guard auth.isAuthenticated, selection == .payments else { return }
+            await auth.refreshPayments()
+        }
         .onChange(of: auth.user?.id) { _, userID in
             if userID != nil { state.syncUsageWithAccount() }
         }
@@ -645,25 +649,107 @@ struct MainWindowView: View {
                         .fill(Color.white.opacity(0.09))
                         .frame(height: 1)
 
-                    VStack(spacing: 14) {
-                        Image(systemName: "doc.text.magnifyingglass")
-                            .font(.system(size: 28, weight: .light))
-                            .foregroundColor(Theme.faint)
-                        Text(copy("Платежей пока нет", "No payments yet"))
-                            .font(.system(size: 19, weight: .semibold, design: .rounded))
-                            .foregroundColor(Theme.text)
-                        Text(copy(
-                            "Здесь появятся оплаты, возвраты и документы после подключения платной подписки.",
-                            "Payments, refunds and documents will appear here after a paid subscription is connected."
-                        ))
-                        .font(Theme.mono(10))
-                        .foregroundColor(Theme.dim)
-                        .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 250)
+                    paymentsContent
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var paymentsContent: some View {
+        if auth.isPaymentsLoading && auth.payments.isEmpty {
+            VStack(spacing: 12) {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(Theme.accent)
+                Text(copy("ЗАГРУЖАЕМ ИСТОРИЮ", "LOADING HISTORY"))
+                    .font(Theme.mono(8, weight: .medium))
+                    .tracking(1.1)
+                    .foregroundColor(Theme.faint)
+            }
+            .frame(maxWidth: .infinity, minHeight: 250)
+        } else if let error = auth.paymentsError {
+            VStack(spacing: 13) {
+                Image(systemName: "exclamationmark.arrow.triangle.2.circlepath")
+                    .font(.system(size: 27, weight: .light))
+                    .foregroundColor(Theme.accent)
+                Text(copy("Не удалось загрузить платежи", "Couldn't load payments"))
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundColor(Theme.text)
+                Text(error)
+                    .font(Theme.mono(9))
+                    .foregroundColor(Theme.dim)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                Button {
+                    Task { await auth.refreshPayments() }
+                } label: {
+                    Text(copy("[ ПОВТОРИТЬ ]", "[ RETRY ]"))
+                        .font(Theme.mono(9, weight: .bold))
+                        .foregroundColor(Theme.accent)
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(maxWidth: .infinity, minHeight: 250)
+        } else if auth.payments.isEmpty {
+            VStack(spacing: 14) {
+                Image(systemName: "doc.text.magnifyingglass")
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundColor(Theme.faint)
+                Text(copy("Платежей пока нет", "No payments yet"))
+                    .font(.system(size: 19, weight: .semibold, design: .rounded))
+                    .foregroundColor(Theme.text)
+                Text(copy(
+                    "Здесь появятся оплаты, возвраты и документы после подключения платной подписки.",
+                    "Payments, refunds and documents will appear here after a paid subscription is connected."
+                ))
+                .font(Theme.mono(10))
+                .foregroundColor(Theme.dim)
+                .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity, minHeight: 250)
+        } else {
+            LazyVStack(spacing: 0) {
+                ForEach(auth.payments) { payment in
+                    paymentRow(payment)
+                    if payment.id != auth.payments.last?.id {
+                        Rectangle()
+                            .fill(Color.white.opacity(0.07))
+                            .frame(height: 1)
+                    }
+                }
+            }
+        }
+    }
+
+    private func paymentRow(_ payment: PaymentRecord) -> some View {
+        HStack(alignment: .center, spacing: 0) {
+            Text(formatPaymentDate(payment.paidAt ?? payment.createdAt))
+                .frame(width: 150, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(paymentDescription(payment))
+                    .foregroundColor(Theme.text)
+                    .fontWeight(.bold)
+                if let method = payment.paymentMethod, !method.isEmpty {
+                    Text(method.uppercased())
+                        .font(Theme.mono(7, weight: .medium))
+                        .tracking(0.8)
+                        .foregroundColor(Theme.faint)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text(formatPaymentAmount(payment))
+                .foregroundColor(Theme.text)
+                .frame(width: 130, alignment: .leading)
+
+            Text(paymentStatus(payment.status))
+                .foregroundColor(payment.status == "succeeded" ? Theme.accent : Theme.dim)
+                .frame(width: 120, alignment: .leading)
+        }
+        .font(Theme.mono(9, weight: .medium))
+        .padding(.vertical, 17)
     }
 
     private var currentPlanCard: some View {
@@ -1026,7 +1112,56 @@ struct MainWindowView: View {
     }
 
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.2.2"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.2.3"
+    }
+
+    private var paymentTaskID: String {
+        "\(auth.user?.id ?? "signed-out"):\(selection.rawValue)"
+    }
+
+    private func paymentDescription(_ payment: PaymentRecord) -> String {
+        if payment.productType == "extra_hours" {
+            let hours = payment.quantityHours ?? 0
+            return copy(
+                "EyeVoice · \(hours) доп. \(hours == 1 ? "час" : "часов")",
+                "EyeVoice · \(hours) extra \(hours == 1 ? "hour" : "hours")"
+            )
+        }
+        return "EyeVoice \(payment.planID.uppercased())"
+    }
+
+    private func paymentStatus(_ status: String) -> String {
+        switch status {
+        case "succeeded": return copy("ОПЛАЧЕНО", "PAID")
+        case "canceled": return copy("ОТМЕНЕНО", "CANCELED")
+        case "waiting_for_capture": return copy("ПОДТВЕРЖДЕНИЕ", "CONFIRMING")
+        default: return copy("ОЖИДАНИЕ", "PENDING")
+        }
+    }
+
+    private func formatPaymentAmount(_ payment: PaymentRecord) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: isRussian ? "ru_RU" : "en_US")
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 2
+        let amount = formatter.string(from: NSDecimalNumber(decimal: payment.amount))
+            ?? NSDecimalNumber(decimal: payment.amount).stringValue
+        return payment.currency == "RUB" ? "\(amount) ₽" : "\(amount) \(payment.currency)"
+    }
+
+    private func formatPaymentDate(_ value: String) -> String {
+        let precise = ISO8601DateFormatter()
+        precise.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let standard = ISO8601DateFormatter()
+        standard.formatOptions = [.withInternetDateTime]
+        guard let date = precise.date(from: value) ?? standard.date(from: value) else {
+            return value
+        }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: isRussian ? "ru_RU" : "en_US")
+        formatter.setLocalizedDateFormatFromTemplate("d MMM yyyy")
+        return formatter.string(from: date)
     }
 
     private var lastSessionText: String {

@@ -65,6 +65,32 @@ struct UsageBalance: Codable, Equatable {
     }
 }
 
+struct PaymentRecord: Decodable, Equatable, Identifiable {
+    let id: String
+    let planID: String
+    let amount: Decimal
+    let currency: String
+    let status: String
+    let paymentMethod: String?
+    let paidAt: String?
+    let createdAt: String
+    let productType: String
+    let quantityHours: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case planID = "plan_id"
+        case amount
+        case currency
+        case status
+        case paymentMethod = "payment_method"
+        case paidAt = "paid_at"
+        case createdAt = "created_at"
+        case productType = "product_type"
+        case quantityHours = "quantity_hours"
+    }
+}
+
 struct SupabaseUser: Codable, Equatable {
     let id: String
     let email: String?
@@ -158,6 +184,9 @@ final class SupabaseAuthManager: ObservableObject {
     @Published private(set) var isCheckingSession = true
     @Published private(set) var isWorking = false
     @Published private(set) var usageBalance: UsageBalance?
+    @Published private(set) var payments: [PaymentRecord] = []
+    @Published private(set) var isPaymentsLoading = false
+    @Published private(set) var paymentsError: String?
 
     private var session: StoredAuthSession?
     private let decoder = JSONDecoder()
@@ -353,6 +382,36 @@ final class SupabaseAuthManager: ObservableObject {
             usageBalance = try await fetchUsageBalance(using: current)
         } catch {
             // Keep the latest known balance while offline.
+        }
+    }
+
+    func refreshPayments() async {
+        guard var current = session else { return }
+        isPaymentsLoading = true
+        paymentsError = nil
+        defer { isPaymentsLoading = false }
+
+        do {
+            if current.expiresAt.timeIntervalSinceNow < 60 {
+                current = try await refresh(using: current.refreshToken)
+                try persist(current)
+                session = current
+                user = current.user
+            }
+
+            do {
+                payments = try await fetchPayments(using: current)
+            } catch let error as SupabaseAuthError where error.statusCode == 401 {
+                current = try await refresh(using: current.refreshToken)
+                try persist(current)
+                session = current
+                user = current.user
+                payments = try await fetchPayments(using: current)
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            paymentsError = error.localizedDescription
         }
     }
 
@@ -561,6 +620,60 @@ final class SupabaseAuthManager: ObservableObject {
         }
     }
 
+    private func fetchPayments(using session: StoredAuthSession) async throws -> [PaymentRecord] {
+        var components = URLComponents(
+            string: "\(SupabaseConfig.projectURL)/rest/v1/payments"
+        )
+        components?.queryItems = [
+            URLQueryItem(
+                name: "select",
+                value: "id,plan_id,amount,currency,status,payment_method,paid_at,created_at,product_type,quantity_hours"
+            ),
+            URLQueryItem(name: "user_id", value: "eq.\(session.user.id)"),
+            URLQueryItem(name: "order", value: "created_at.desc"),
+            URLQueryItem(name: "limit", value: "20"),
+        ]
+        guard let url = components?.url else {
+            throw SupabaseAuthError.invalidResponse
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 20
+        request.setValue(SupabaseConfig.publishableKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw SupabaseAuthError.network(error.localizedDescription)
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw SupabaseAuthError.invalidResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            let payload = try? decoder.decode(SupabaseErrorPayload.self, from: data)
+            let message = payload?.message
+                ?? payload?.msg
+                ?? HTTPURLResponse.localizedString(forStatusCode: http.statusCode)
+            throw SupabaseAuthError.server(
+                message: message,
+                code: payload?.errorCode ?? payload?.code,
+                status: http.statusCode
+            )
+        }
+
+        do {
+            return try decoder.decode([PaymentRecord].self, from: data)
+        } catch {
+            throw SupabaseAuthError.invalidResponse
+        }
+    }
+
     private func request(
         _ path: String,
         method: String = "POST",
@@ -657,6 +770,9 @@ final class SupabaseAuthManager: ObservableObject {
         session = nil
         user = nil
         usageBalance = nil
+        payments = []
+        paymentsError = nil
+        isPaymentsLoading = false
         try? AuthKeychain.delete()
     }
 }
