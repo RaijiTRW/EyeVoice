@@ -18,9 +18,11 @@ create index if not exists subscriptions_due_renewal_idx
   on public.subscriptions (current_period_end, auto_renew)
   where status = 'active';
 
+create extension if not exists pgcrypto with schema extensions;
+
 create table if not exists public.billing_cron_config (
   singleton boolean primary key default true check (singleton),
-  secret text not null default encode(gen_random_bytes(32), 'hex'),
+  secret text not null default encode(extensions.gen_random_bytes(32), 'hex'),
   created_at timestamptz not null default now()
 );
 
