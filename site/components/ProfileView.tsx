@@ -10,6 +10,7 @@ import { useUser } from "@/lib/useUser";
 import { useLang } from "@/lib/i18n";
 import type { PlanId } from "@/lib/plans";
 import { useProfileSection } from "@/lib/profile-section";
+import BillingModal, { type BillingModalTone } from "./BillingModal";
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
@@ -29,7 +30,15 @@ type PaymentRow = {
 type SubscriptionRow = {
   plan_id: "start" | "pro";
   status: "active" | "expired" | "canceled";
+  current_period_start: string;
   current_period_end: string;
+  auto_renew: boolean;
+  provider_payment_method_id: string | null;
+  payment_method_title: string | null;
+  card_last4: string | null;
+  pending_plan_id: "free" | "start" | "pro" | null;
+  cancel_at_period_end: boolean;
+  renewal_error: string | null;
 };
 
 type UsageBalance = {
@@ -45,6 +54,33 @@ type UsageBalance = {
   extra_hour_price_rub: number | null;
   can_purchase_extra_hours: boolean;
 };
+
+type ModalState = {
+  tone: BillingModalTone;
+  eyebrow: string;
+  title: string;
+  description: string;
+  detail?: string | null;
+  primaryLabel?: string;
+  secondaryLabel?: string;
+  primaryAction?: "checkout" | "cancel" | "downgrade" | "unlink" | "retry" | "close";
+  dismissible?: boolean;
+};
+
+async function edgeErrorMessage(error: unknown, fallback: string) {
+  if (!error || typeof error !== "object") return fallback;
+  const context = "context" in error ? (error as { context?: unknown }).context : null;
+  if (context instanceof Response) {
+    try {
+      const payload = await context.clone().json();
+      if (typeof payload?.error === "string") return payload.error;
+    } catch {
+      // The fallback below is clearer than a response parsing failure.
+    }
+  }
+  const message = "message" in error ? (error as { message?: unknown }).message : null;
+  return typeof message === "string" && message ? message : fallback;
+}
 
 /** Odometer: on change each character rolls in from above/below, alternating. */
 function Odometer({ value, className }: { value: string; className?: string }) {
@@ -90,6 +126,11 @@ export default function ProfileView() {
   const [extraHourCount, setExtraHourCount] = useState(1);
   const [buyingHours, setBuyingHours] = useState(false);
   const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
+  const [billingRefreshKey, setBillingRefreshKey] = useState(0);
+  const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
+  const [modal, setModal] = useState<ModalState | null>(null);
+  const [pendingCheckoutPlan, setPendingCheckoutPlan] = useState<PlanId | null>(null);
+  const [billingAction, setBillingAction] = useState<"cancel" | "downgrade" | "unlink" | "card" | null>(null);
 
   const plans = t.plans;
 
@@ -123,20 +164,73 @@ export default function ProfileView() {
         : null;
       let paymentPending = false;
       if (pendingPaymentId) {
-        const { data } = await supabase.functions.invoke("confirm-payment", {
+        if (attempt === 0) {
+          setModal({
+            tone: "progress",
+            eyebrow: t.profile.billingPaymentEyebrow,
+            title: t.profile.paymentPendingTitle,
+            description: t.profile.paymentPendingDescription,
+            dismissible: false,
+          });
+        }
+        const { data, error } = await supabase.functions.invoke("confirm-payment", {
           body: { payment_id: pendingPaymentId },
         });
-        if (data?.status === "succeeded" || data?.status === "canceled") {
+        if (error) {
+          paymentPending = attempt < 11;
+          if (!paymentPending) {
+            setModal({
+              tone: "error",
+              eyebrow: t.profile.billingPaymentEyebrow,
+              title: t.profile.paymentFailedTitle,
+              description: t.profile.paymentFailedDescription,
+              detail: await edgeErrorMessage(error, t.profile.paymentError),
+              primaryLabel: t.profile.tryAgain,
+              secondaryLabel: t.profile.back,
+              primaryAction: "retry",
+            });
+          }
+        } else if (data?.status === "succeeded") {
           window.localStorage.removeItem("eyevoice_pending_payment");
+          setModal({
+            tone: "success",
+            eyebrow: t.profile.billingPaymentEyebrow,
+            title: t.profile.paymentSuccessTitle,
+            description: t.profile.paymentSuccessDescription,
+            primaryLabel: t.profile.done,
+            primaryAction: "close",
+          });
+        } else if (data?.status === "canceled") {
+          window.localStorage.removeItem("eyevoice_pending_payment");
+          setModal({
+            tone: "error",
+            eyebrow: t.profile.billingPaymentEyebrow,
+            title: t.profile.paymentFailedTitle,
+            description: t.profile.paymentFailedDescription,
+            detail: typeof data?.cancellation_reason === "string" ? data.cancellation_reason : null,
+            primaryLabel: t.profile.tryAgain,
+            secondaryLabel: t.profile.back,
+            primaryAction: "retry",
+          });
         } else {
           paymentPending = true;
         }
+      } else if (returnedFromPayment && attempt === 0) {
+        setModal({
+          tone: "error",
+          eyebrow: t.profile.billingPaymentEyebrow,
+          title: t.profile.paymentFailedTitle,
+          description: t.profile.paymentFailedDescription,
+          detail: t.profile.paymentError,
+          primaryLabel: t.profile.done,
+          primaryAction: "close",
+        });
       }
 
       const [{ data: subscription }, { data: paymentRows }] = await Promise.all([
         supabase
           .from("subscriptions")
-          .select("plan_id,status,current_period_end")
+          .select("plan_id,status,current_period_start,current_period_end,auto_renew,provider_payment_method_id,payment_method_title,card_last4,pending_plan_id,cancel_at_period_end,renewal_error")
           .eq("user_id", user!.id)
           .maybeSingle<SubscriptionRow>(),
         supabase
@@ -155,6 +249,7 @@ export default function ProfileView() {
       const requestedPaidPlan: PlanId | null =
         requestedPlan === "start" || requestedPlan === "pro" ? requestedPlan : null;
       setPlan(nextPlan);
+      setSubscription(active ? subscription : null);
       setPayments((paymentRows ?? []) as PaymentRow[]);
       if (attempt === 0) setViewPlan(requestedPaidPlan ?? nextPlan);
       else if (active) setViewPlan(nextPlan);
@@ -178,7 +273,78 @@ export default function ProfileView() {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [user]);
+  }, [user, billingRefreshKey, t.profile]);
+
+  useEffect(() => {
+    if (!user) return;
+    const returnedFromCard = new URLSearchParams(window.location.search).get("billing") === "card-return";
+    if (!returnedFromCard) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const confirmBinding = async (attempt = 0) => {
+      const paymentMethodId = window.localStorage.getItem("eyevoice_pending_payment_method");
+      if (!paymentMethodId) {
+        setModal({
+          tone: "error",
+          eyebrow: t.profile.billingSettings,
+          title: t.profile.cardFailedTitle,
+          description: t.profile.cardFailedDescription,
+          primaryLabel: t.profile.done,
+          primaryAction: "close",
+        });
+        return;
+      }
+      if (attempt === 0) {
+        setModal({
+          tone: "progress",
+          eyebrow: t.profile.billingSettings,
+          title: t.profile.cardBindingTitle,
+          description: t.profile.cardBindingDescription,
+          dismissible: false,
+        });
+      }
+      const { data, error } = await supabase.functions.invoke("manage-subscription", {
+        body: { action: "confirm_card_binding", payment_method_id: paymentMethodId },
+      });
+      if (cancelled) return;
+      if (!error && data?.status === "active") {
+        window.localStorage.removeItem("eyevoice_pending_payment_method");
+        setModal({
+          tone: "success",
+          eyebrow: t.profile.billingSettings,
+          title: t.profile.cardSuccessTitle,
+          description: t.profile.cardSuccessDescription,
+          primaryLabel: t.profile.done,
+          primaryAction: "close",
+        });
+        setBillingRefreshKey((value) => value + 1);
+        window.history.replaceState({}, "", window.location.pathname);
+        return;
+      }
+      if (!error && data?.status === "pending" && attempt < 12) {
+        timer = setTimeout(() => void confirmBinding(attempt + 1), 2000);
+        return;
+      }
+      window.localStorage.removeItem("eyevoice_pending_payment_method");
+      setModal({
+        tone: "error",
+        eyebrow: t.profile.billingSettings,
+        title: t.profile.cardFailedTitle,
+        description: t.profile.cardFailedDescription,
+        detail: await edgeErrorMessage(error, typeof data?.error === "string" ? data.error : t.profile.paymentError),
+        primaryLabel: t.profile.done,
+        primaryAction: "close",
+      });
+      window.history.replaceState({}, "", window.location.pathname);
+    };
+
+    void confirmBinding();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [user, t.profile]);
 
   useEffect(() => {
     if (!user) return;
@@ -264,21 +430,146 @@ export default function ProfileView() {
   const currentPlan = plans.find((p) => p.id === plan)!;
   const viewing = plans.find((p) => p.id === viewPlan)!;
 
-  async function choosePlan(id: PlanId) {
+  function choosePlan(id: PlanId) {
+    if (id === plan && id !== "free") {
+      if (subscription?.cancel_at_period_end) {
+        void manageSubscription("resume_plan");
+        return;
+      }
+      setModal({
+        tone: "warning",
+        eyebrow: t.profile.billingSettings,
+        title: t.profile.cancelPlanTitle,
+        description: t.profile.cancelPlanDescription,
+        detail: subscription
+          ? `${t.profile.scheduledFree} · ${new Date(subscription.current_period_end).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US")}`
+          : null,
+        primaryLabel: t.profile.confirmCancellation,
+        secondaryLabel: t.profile.back,
+        primaryAction: "cancel",
+      });
+      return;
+    }
+    if (plan === "pro" && id === "start") {
+      setModal({
+        tone: "warning",
+        eyebrow: t.profile.billingSettings,
+        title: t.profile.downgradeTitle,
+        description: t.profile.downgradeDescription,
+        detail: subscription
+          ? `${t.profile.scheduledStart} · ${new Date(subscription.current_period_end).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US")}`
+          : null,
+        primaryLabel: t.profile.confirmDowngrade,
+        secondaryLabel: t.profile.back,
+        primaryAction: "downgrade",
+      });
+      return;
+    }
     if (id === "free" || id === plan) return;
+    setPendingCheckoutPlan(id);
+    setModal({
+      tone: "card",
+      eyebrow: t.profile.billingPaymentEyebrow,
+      title: t.profile.paymentConfirmTitle,
+      description: t.profile.paymentConfirmDescription,
+      detail: `${plans.find((item) => item.id === id)?.name ?? id.toUpperCase()} · ${plans.find((item) => item.id === id)?.price ?? ""}`,
+      primaryLabel: t.profile.continuePayment,
+      secondaryLabel: t.profile.back,
+      primaryAction: "checkout",
+    });
+  }
+
+  async function startPlanCheckout(id: PlanId) {
     setSaving(true);
     setPaymentError(null);
+    setModal({
+      tone: "progress",
+      eyebrow: t.profile.billingPaymentEyebrow,
+      title: t.profile.paymentPreparingTitle,
+      description: t.profile.paymentPreparingDescription,
+      dismissible: false,
+    });
     const { data, error } = await supabase.functions.invoke("create-payment", {
       body: { plan_id: id },
     });
     setSaving(false);
     if (error || typeof data?.confirmation_url !== "string") {
-      setPaymentError(t.profile.paymentError);
+      const detail = await edgeErrorMessage(error, typeof data?.error === "string" ? data.error : t.profile.paymentError);
+      setPaymentError(detail);
+      setModal({
+        tone: "error",
+        eyebrow: t.profile.billingPaymentEyebrow,
+        title: t.profile.paymentFailedTitle,
+        description: t.profile.paymentFailedDescription,
+        detail,
+        primaryLabel: t.profile.tryAgain,
+        secondaryLabel: t.profile.back,
+        primaryAction: "retry",
+      });
       return;
     }
     if (typeof data.payment_id === "string") {
       window.localStorage.setItem("eyevoice_pending_payment", data.payment_id);
     }
+    window.location.assign(data.confirmation_url);
+  }
+
+  async function manageSubscription(action: "cancel_plan" | "schedule_downgrade" | "resume_plan" | "unlink_card") {
+    const visualAction = action === "cancel_plan"
+      ? "cancel"
+      : action === "schedule_downgrade"
+        ? "downgrade"
+        : action === "unlink_card"
+          ? "unlink"
+          : "card";
+    setBillingAction(visualAction);
+    const { data, error } = await supabase.functions.invoke("manage-subscription", {
+      body: { action },
+    });
+    setBillingAction(null);
+    if (error) {
+      setModal({
+        tone: "error",
+        eyebrow: t.profile.billingSettings,
+        title: t.profile.paymentFailedTitle,
+        description: t.profile.paymentFailedDescription,
+        detail: await edgeErrorMessage(error, t.profile.paymentError),
+        primaryLabel: t.profile.done,
+        primaryAction: "close",
+      });
+      return;
+    }
+    setSubscription((data?.subscription ?? null) as SubscriptionRow | null);
+    setModal(null);
+    setBillingRefreshKey((value) => value + 1);
+  }
+
+  async function startCardBinding() {
+    setBillingAction("card");
+    setModal({
+      tone: "progress",
+      eyebrow: t.profile.billingSettings,
+      title: t.profile.cardBindingTitle,
+      description: t.profile.cardBindingDescription,
+      dismissible: false,
+    });
+    const { data, error } = await supabase.functions.invoke("manage-subscription", {
+      body: { action: "create_card_binding" },
+    });
+    setBillingAction(null);
+    if (error || typeof data?.confirmation_url !== "string" || typeof data?.payment_method_id !== "string") {
+      setModal({
+        tone: "error",
+        eyebrow: t.profile.billingSettings,
+        title: t.profile.cardFailedTitle,
+        description: t.profile.cardFailedDescription,
+        detail: await edgeErrorMessage(error, typeof data?.error === "string" ? data.error : t.profile.paymentError),
+        primaryLabel: t.profile.done,
+        primaryAction: "close",
+      });
+      return;
+    }
+    window.localStorage.setItem("eyevoice_pending_payment_method", data.payment_method_id);
     window.location.assign(data.confirmation_url);
   }
 
@@ -290,12 +581,30 @@ export default function ProfileView() {
     }
     setBuyingHours(true);
     setPaymentError(null);
+    setModal({
+      tone: "progress",
+      eyebrow: t.profile.billingPaymentEyebrow,
+      title: t.profile.paymentPreparingTitle,
+      description: t.profile.paymentPreparingDescription,
+      dismissible: false,
+    });
     const { data, error } = await supabase.functions.invoke("create-payment", {
       body: { product_type: "extra_hours", hours: extraHourCount },
     });
     setBuyingHours(false);
     if (error || typeof data?.confirmation_url !== "string") {
-      setPaymentError(t.profile.paymentError);
+      const detail = await edgeErrorMessage(error, typeof data?.error === "string" ? data.error : t.profile.paymentError);
+      setPaymentError(detail);
+      setModal({
+        tone: "error",
+        eyebrow: t.profile.billingPaymentEyebrow,
+        title: t.profile.paymentFailedTitle,
+        description: t.profile.paymentFailedDescription,
+        detail,
+        primaryLabel: t.profile.tryAgain,
+        secondaryLabel: t.profile.back,
+        primaryAction: "retry",
+      });
       return;
     }
     if (typeof data.payment_id === "string") {
@@ -329,8 +638,55 @@ export default function ProfileView() {
   const extraTotal = usageBalance?.extra_hour_price_rub
     ? usageBalance.extra_hour_price_rub * extraHourCount
     : 0;
+  const periodEndLabel = subscription
+    ? new Date(subscription.current_period_end).toLocaleDateString(
+        lang === "ru" ? "ru-RU" : "en-US",
+        { day: "numeric", month: "long", year: "numeric" },
+      )
+    : null;
+
+  const closeModal = () => setModal(null);
+  const handleModalPrimary = () => {
+    const action = modal?.primaryAction;
+    if (action === "checkout" && pendingCheckoutPlan) {
+      void startPlanCheckout(pendingCheckoutPlan);
+    } else if (action === "cancel") {
+      void manageSubscription("cancel_plan");
+    } else if (action === "downgrade") {
+      void manageSubscription("schedule_downgrade");
+    } else if (action === "unlink") {
+      void manageSubscription("unlink_card");
+    } else if (action === "retry") {
+      setModal(null);
+      if (section === "limits" && usageBalance?.can_purchase_extra_hours) {
+        void buyExtraHours();
+      } else if (pendingCheckoutPlan) {
+        choosePlan(pendingCheckoutPlan);
+      }
+    } else {
+      closeModal();
+      setBillingRefreshKey((value) => value + 1);
+      setBalanceRefreshKey((value) => value + 1);
+    }
+  };
+
+  const planActionLabel = (() => {
+    if (checkingPayment) return t.profile.paymentChecking;
+    if (saving || billingAction) return t.profile.paymentStarting;
+    if (viewPlan === plan && plan !== "free") {
+      return subscription?.cancel_at_period_end ? t.profile.resumePlan : t.profile.cancelPlan;
+    }
+    if (plan === "pro" && viewPlan === "start") return t.profile.downgrade;
+    if (viewPlan === "free") return plan === "free" ? t.profile.chosen : t.profile.freeIncluded;
+    if (plan === viewPlan) return t.profile.chosen;
+    return t.profile.choose;
+  })();
+
+  const planActionDisabled = checkingPayment || saving || Boolean(billingAction) ||
+    viewPlan === "free";
 
   return (
+    <>
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -462,20 +818,12 @@ export default function ProfileView() {
 
             <button
               onClick={() => choosePlan(viewPlan)}
-              disabled={viewPlan === "free" || plan === viewPlan || saving || checkingPayment}
+              disabled={planActionDisabled}
               className={`btn mt-4 w-full !py-2 !text-[9px] md:!text-[10px] ${
-                viewPlan === "free" || plan === viewPlan ? "opacity-40" : "btn-primary btn-accent"
+                planActionDisabled ? "opacity-40" : "btn-primary btn-accent"
               } disabled:pointer-events-none`}
             >
-              {checkingPayment
-                ? t.profile.paymentChecking
-                : saving
-                  ? t.profile.paymentStarting
-                  : viewPlan === "free" && plan !== "free"
-                    ? t.profile.freeIncluded
-                : plan === viewPlan
-                  ? t.profile.chosen
-                  : t.profile.choose}
+              {planActionLabel}
             </button>
             {paymentError && (
               <p className="mt-2 text-[9px] leading-relaxed text-accent md:text-[10px]">
@@ -485,6 +833,66 @@ export default function ProfileView() {
             <p className="mt-2 text-[9px] leading-relaxed text-faint md:text-[10px]">
               {t.profile.planNote}
             </p>
+
+            {subscription ? (
+              <div className="mt-4 border-t border-line/60 pt-4">
+                <div className="flex flex-col gap-3 rounded-xl border border-line bg-bg/45 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="text-[8px] uppercase tracking-[0.2em] text-accent">
+                      {t.profile.billingSettings}
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-dim">
+                      <span className="font-bold text-ink">
+                        {subscription.provider_payment_method_id
+                          ? `${t.profile.cardLinked}${subscription.card_last4 ? ` · •••• ${subscription.card_last4}` : ""}`
+                          : t.profile.cardMissing}
+                      </span>
+                      <span className="text-faint">/</span>
+                      <span className={subscription.auto_renew ? "text-accent" : "text-faint"}>
+                        {subscription.auto_renew ? t.profile.autoRenewOn : t.profile.autoRenewOff}
+                      </span>
+                    </div>
+                    {subscription.pending_plan_id ? (
+                      <div className="mt-2 text-[8px] uppercase tracking-widest text-faint">
+                        {subscription.pending_plan_id === "free" ? t.profile.scheduledFree : t.profile.scheduledStart}
+                        {periodEndLabel ? ` · ${periodEndLabel}` : ""}
+                      </div>
+                    ) : null}
+                    {subscription.renewal_error ? (
+                      <div className="mt-2 text-[8px] leading-relaxed text-red-300">
+                        {subscription.renewal_error}
+                      </div>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (subscription.provider_payment_method_id) {
+                        setModal({
+                          tone: "warning",
+                          eyebrow: t.profile.billingSettings,
+                          title: t.profile.unlinkCardTitle,
+                          description: t.profile.unlinkCardDescription,
+                          primaryLabel: t.profile.confirmUnlink,
+                          secondaryLabel: t.profile.back,
+                          primaryAction: "unlink",
+                        });
+                      } else {
+                        void startCardBinding();
+                      }
+                    }}
+                    disabled={Boolean(billingAction)}
+                    className="btn flex-none !px-4 !py-2 !text-[8px] disabled:opacity-45"
+                  >
+                    {billingAction === "card"
+                      ? t.profile.paymentStarting
+                      : subscription.provider_payment_method_id
+                        ? t.profile.unlinkCard
+                        : t.profile.linkCard}
+                  </button>
+                </div>
+              </div>
+            ) : null}
             </div>
           )}
 
@@ -689,5 +1097,19 @@ export default function ProfileView() {
         </motion.div>
       </div>
     </motion.div>
+    <BillingModal
+      open={Boolean(modal)}
+      tone={modal?.tone ?? "progress"}
+      eyebrow={modal?.eyebrow ?? ""}
+      title={modal?.title ?? ""}
+      description={modal?.description ?? ""}
+      detail={modal?.detail}
+      primaryLabel={modal?.primaryLabel}
+      secondaryLabel={modal?.secondaryLabel}
+      onPrimary={handleModalPrimary}
+      onSecondary={closeModal}
+      dismissible={modal?.dismissible ?? true}
+    />
+    </>
   );
 }
