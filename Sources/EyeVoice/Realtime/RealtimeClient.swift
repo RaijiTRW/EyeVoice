@@ -4,6 +4,10 @@ import Foundation
 /// Streams source audio continuously and receives translated audio + transcript
 /// deltas while the speaker is still talking (true simultaneous interpretation).
 final class RealtimeClient: NSObject, TranslatorClient {
+    /// Generate compact speech on the server instead of continuously
+    /// time-stretching already generated PCM on the Mac. Server-side speed
+    /// keeps the voice clean and gives the interpreter room to catch up.
+    private static let outputSpeed = 1.5
     private let apiKey: String
     private let model: String
     private let targetLanguage: String
@@ -130,7 +134,10 @@ extension RealtimeClient: URLSessionWebSocketDelegate {
             "type": "session.update",
             "session": [
                 "audio": [
-                    "output": ["language": targetLanguage],
+                    "output": [
+                        "language": targetLanguage,
+                        "speed": Self.outputSpeed,
+                    ],
                 ],
             ],
         ])

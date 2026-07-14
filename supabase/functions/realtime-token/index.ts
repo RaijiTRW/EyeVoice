@@ -89,7 +89,7 @@ Deno.serve(async (request) => {
   const session = translation
     ? {
         model: "gpt-realtime-translate",
-        audio: { output: { language: targetLanguage } },
+        audio: { output: { language: targetLanguage, speed: 1.5 } },
       }
     : {
         type: "realtime",

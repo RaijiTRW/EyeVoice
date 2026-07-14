@@ -16,10 +16,10 @@ final class AudioChunker {
 
     /// Keep WebSocket appends small and regular. Core Audio process taps may
     /// deliver several hundred milliseconds at once; forwarding that whole
-    /// buffer makes the realtime model wait for the next large packet. 80 ms
-    /// is short enough for live translation without producing excessive
-    /// WebSocket traffic.
-    private static let packetBytes = Int(targetFormat.sampleRate * 0.08)
+    /// buffer makes the realtime model wait for the next large packet. 40 ms
+    /// gives the streaming translator the earliest practical look at new
+    /// speech while remaining comfortably above individual audio frames.
+    private static let packetBytes = Int(targetFormat.sampleRate * 0.04)
         * MemoryLayout<Int16>.size
 
     func process(_ buffer: AVAudioPCMBuffer, onChunk: (Data) -> Void, onLevel: (Float) -> Void) {
