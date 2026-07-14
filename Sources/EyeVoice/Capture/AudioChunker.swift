@@ -12,6 +12,15 @@ final class AudioChunker {
 
     private var converter: AVAudioConverter?
     private var inputFormat: AVAudioFormat?
+    private var pendingPCM = Data()
+
+    /// Keep WebSocket appends small and regular. Core Audio process taps may
+    /// deliver several hundred milliseconds at once; forwarding that whole
+    /// buffer makes the realtime model wait for the next large packet. 80 ms
+    /// is short enough for live translation without producing excessive
+    /// WebSocket traffic.
+    private static let packetBytes = Int(targetFormat.sampleRate * 0.08)
+        * MemoryLayout<Int16>.size
 
     func process(_ buffer: AVAudioPCMBuffer, onChunk: (Data) -> Void, onLevel: (Float) -> Void) {
         onLevel(Self.rmsLevel(of: buffer))
@@ -38,7 +47,14 @@ final class AudioChunker {
             return buffer
         }
         guard error == nil, out.frameLength > 0, let samples = out.int16ChannelData else { return }
-        onChunk(Data(bytes: samples[0], count: Int(out.frameLength) * MemoryLayout<Int16>.size))
+        pendingPCM.append(
+            Data(bytes: samples[0], count: Int(out.frameLength) * MemoryLayout<Int16>.size)
+        )
+
+        while pendingPCM.count >= Self.packetBytes {
+            onChunk(Data(pendingPCM.prefix(Self.packetBytes)))
+            pendingPCM.removeFirst(Self.packetBytes)
+        }
     }
 
     private static func rmsLevel(of buffer: AVAudioPCMBuffer) -> Float {

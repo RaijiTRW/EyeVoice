@@ -147,13 +147,13 @@ final class AppState: ObservableObject {
     private var tokenTask: Task<Void, Never>?
     private var outputSettingsCancellable: AnyCancellable?
 
-    // sound gate: sleep the connection during silence, wake instantly on sound
+    // Keep the realtime connection warm while translation is running. Closing
+    // it after a short silence used to add 5–6 seconds before the next phrase.
     private var suspended = false
     private var clientReady = false
     private var resumeBuffer: [Data] = []
     private var lastSoundAt = Date()
     private let soundGateLevel: Float = 0.04
-    private let standbyAfterSilence: TimeInterval = 8
     private var micCapturer: MicCapturer?
     private var appCapturer: AppAudioCapturer?
     private var player: AudioPlayer?
@@ -304,7 +304,7 @@ final class AppState: ObservableObject {
 
         requestClientAndConnect()
 
-        // latency diagnostics: log the playback backlog while running
+        // Latency diagnostics: log the playback backlog while running.
         backlogLogTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             guard let self, self.isRunning, let player = self.player else { return }
             Self.logToFile("backlog: \(String(format: "%.2f", player.backlogSeconds))s status: \(self.status.rawValue)")
@@ -429,7 +429,8 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// Silence for a while → close the connection (stops billing), keep capturing.
+    /// Legacy explicit standby support. Automatic standby is intentionally
+    /// disabled because reconnecting is much slower than the 1–2 second target.
     private func standby() {
         guard isRunning, !suspended else { return }
         pauseActiveUsageSegment()
@@ -441,7 +442,7 @@ final class AppState: ObservableObject {
         client = nil
         resumeBuffer = []
         status = .standby
-        Self.logToFile("standby: \(Int(standbyAfterSilence))s of silence — connection closed")
+        Self.logToFile("standby: connection closed")
     }
 
     /// Sound detected while sleeping → reconnect instantly, buffering the audio meanwhile.
@@ -643,16 +644,12 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// Sound gate: wake on sound instantly, go to standby after sustained silence.
+    /// Track speech activity without tearing down the warmed realtime session.
     private func soundGate(_ level: Float) {
         guard isRunning else { return }
         if level > soundGateLevel {
             lastSoundAt = Date()
             if suspended { wake() }
-        } else if !suspended,
-                  status != .translating,
-                  Date().timeIntervalSince(lastSoundAt) > standbyAfterSilence {
-            standby()
         }
     }
 

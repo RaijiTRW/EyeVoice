@@ -4,6 +4,7 @@ import AVFoundation
 final class AudioPlayer {
     private let engine = AVAudioEngine()
     private let node = AVAudioPlayerNode()
+    private let timePitch = AVAudioUnitTimePitch()
     private let gainUnit = AVAudioUnitEQ(numberOfBands: 0)
     private let format = AVAudioFormat(standardFormatWithSampleRate: 24000, channels: 1)!
     private let queue = DispatchQueue(label: "eyevoice.audio-output", qos: .userInitiated)
@@ -22,9 +23,13 @@ final class AudioPlayer {
 
     init() {
         engine.attach(node)
+        engine.attach(timePitch)
         engine.attach(gainUnit)
-        engine.connect(node, to: gainUnit, format: format)
+        engine.connect(node, to: timePitch, format: format)
+        engine.connect(timePitch, to: gainUnit, format: format)
         engine.connect(gainUnit, to: engine.mainMixerNode, format: format)
+        timePitch.overlap = 8
+        timePitch.rate = 1
     }
 
     func enqueue(pcm16 data: Data) {
@@ -73,7 +78,10 @@ final class AudioPlayer {
         let duration = Double(frames) / format.sampleRate
         lock.lock()
         pendingSeconds += duration
+        let backlog = pendingSeconds
         lock.unlock()
+
+        updateCatchUpRate(for: backlog)
 
         startIfNeeded()
         node.scheduleBuffer(buffer, at: nil, options: [], completionCallbackType: .dataPlayedBack) { [weak self] _ in
@@ -85,6 +93,26 @@ final class AudioPlayer {
         if !node.isPlaying { node.play() }
     }
 
+    /// Translation audio must not become a second source of latency. When the
+    /// model emits a burst, speed it up gradually (without changing pitch) and
+    /// return to natural speed as soon as the queue is close to live.
+    private func updateCatchUpRate(for backlog: Double) {
+        let targetRate: Float
+        switch backlog {
+        case 2.0...:
+            targetRate = 1.38
+        case 1.25..<2.0:
+            targetRate = 1.26
+        case 0.75..<1.25:
+            targetRate = 1.12
+        default:
+            targetRate = 1.0
+        }
+        if abs(timePitch.rate - targetRate) > 0.01 {
+            timePitch.rate = targetRate
+        }
+    }
+
     /// Drop everything queued — used to skip stale translation and jump back to "live".
     func flush() {
         queue.async { [weak self] in
@@ -93,6 +121,7 @@ final class AudioPlayer {
             self.lock.lock()
             self.pendingSeconds = 0
             self.lock.unlock()
+            self.timePitch.rate = 1
             self.node.play()
             self.onLevel?(0)
         }
@@ -109,6 +138,7 @@ final class AudioPlayer {
             self.lock.lock()
             self.pendingSeconds = 0
             self.lock.unlock()
+            self.timePitch.rate = 1
             self.onLevel?(0)
         }
     }
