@@ -151,7 +151,6 @@ final class AppState: ObservableObject {
     // it after a short silence used to add 5–6 seconds before the next phrase.
     private var suspended = false
     private var clientReady = false
-    private var resumeBuffer: [Data] = []
     private var lastSoundAt = Date()
     private let soundGateLevel: Float = 0.04
     private var micCapturer: MicCapturer?
@@ -165,6 +164,8 @@ final class AppState: ObservableObject {
     private var lastInputTelemetryAt = Date.distantPast
     private var lastServerInputLogAt = Date.distantPast
     private var sentAudioBytesSinceTelemetry = 0
+    private var liveCaptureStartedAt: Date?
+    private var firstOutputLogged = false
     private var activeUsageSegmentStartedAt: Date?
     private var currentSessionBecameActive = false
     private var currentSessionSourceID = "mic"
@@ -293,6 +294,8 @@ final class AppState: ObservableObject {
         lastInputTelemetryAt = Date()
         lastServerInputLogAt = .distantPast
         sentAudioBytesSinceTelemetry = 0
+        liveCaptureStartedAt = nil
+        firstOutputLogged = false
         overlayCollapsed = false
         status = .connecting
         overlay.show(state: self)
@@ -309,12 +312,11 @@ final class AppState: ObservableObject {
             guard let self, self.isRunning, let player = self.player else { return }
             Self.logToFile("backlog: \(String(format: "%.2f", player.backlogSeconds))s status: \(self.status.rawValue)")
         }
-
-        startCapture()
     }
 
-    /// Builds and connects a translator client. Audio arriving before the session
-    /// is ready is buffered and flushed on connect, so no speech is lost.
+    /// Builds and connects a translator client. Capture starts only after the
+    /// realtime session is ready. Buffering audio during token/WebSocket setup
+    /// permanently puts a live translation several seconds behind the source.
     private func requestClientAndConnect() {
         clientReady = false
         tokenTask?.cancel()
@@ -373,7 +375,17 @@ final class AppState: ObservableObject {
                 player.flush()
             }
             self.player?.enqueue(pcm16: data)
-            DispatchQueue.main.async { self.markTranslating() }
+            DispatchQueue.main.async {
+                if !self.firstOutputLogged, let startedAt = self.liveCaptureStartedAt {
+                    self.firstOutputLogged = true
+                    Self.logToFile(
+                        "latency: first translated audio after "
+                            + String(format: "%.2f", Date().timeIntervalSince(startedAt))
+                            + "s of live capture"
+                    )
+                }
+                self.markTranslating()
+            }
         }
         client.onTranscriptDelta = { [weak self] text in
             DispatchQueue.main.async {
@@ -406,10 +418,11 @@ final class AppState: ObservableObject {
                 guard let self, self.isRunning, !self.suspended else { return }
                 self.clientReady = true
                 self.beginActiveUsageSegment()
-                for chunk in self.resumeBuffer {
-                    self.client?.sendAudio(chunk)
+                if self.micCapturer == nil, self.appCapturer == nil {
+                    self.liveCaptureStartedAt = Date()
+                    Self.logToFile("realtime ready: starting live capture without startup backlog")
+                    self.startCapture()
                 }
-                self.resumeBuffer = []
                 self.setStatus(.listening)
             }
         }
@@ -433,9 +446,6 @@ final class AppState: ObservableObject {
                 sentAudioBytesSinceTelemetry = 0
                 lastInputTelemetryAt = now
             }
-        } else {
-            resumeBuffer.append(data)
-            if resumeBuffer.count > 300 { resumeBuffer.removeFirst() }
         }
     }
 
@@ -450,7 +460,6 @@ final class AppState: ObservableObject {
         tokenTask = nil
         client?.disconnect()
         client = nil
-        resumeBuffer = []
         status = .standby
         Self.logToFile("standby: connection closed")
     }
@@ -514,7 +523,6 @@ final class AppState: ObservableObject {
         player?.stop(); player = nil
         suspended = false
         clientReady = false
-        resumeBuffer = []
         meter.input = 0
         meter.output = 0
         overlay.hide()
