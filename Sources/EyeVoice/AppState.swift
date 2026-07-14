@@ -321,17 +321,27 @@ final class AppState: ObservableObject {
 
         tokenTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            do {
-                let token = try await SupabaseAuthManager.shared.realtimeClientSecret(
-                    mode: self.mode,
-                    targetLanguage: Self.languageCode(for: self.targetLanguage),
-                    voice: self.voice
-                )
-                guard !Task.isCancelled, self.isRunning, !self.suspended else { return }
-                self.connectClient(using: token)
-            } catch {
-                guard !Task.isCancelled else { return }
-                self.fail(error.localizedDescription)
+            for attempt in 1...3 {
+                do {
+                    let token = try await SupabaseAuthManager.shared.realtimeClientSecret(
+                        mode: self.mode,
+                        targetLanguage: Self.languageCode(for: self.targetLanguage),
+                        voice: self.voice
+                    )
+                    guard !Task.isCancelled, self.isRunning, !self.suspended else { return }
+                    self.connectClient(using: token)
+                    return
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    if attempt == 3 {
+                        self.fail(error.localizedDescription)
+                        return
+                    }
+                    Self.logToFile(
+                        "realtime token attempt \(attempt) failed: \(error.localizedDescription); retrying"
+                    )
+                    try? await Task.sleep(for: .milliseconds(350 * attempt))
+                }
             }
         }
     }

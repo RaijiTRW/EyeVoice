@@ -14,6 +14,7 @@ final class RealtimeClient: NSObject, TranslatorClient {
     private var task: URLSessionWebSocketTask?
     private var session: URLSession?
     private var closed = false
+    private var didRetryWithoutOutputSpeed = false
 
     var onAudio: ((Data) -> Void)?
     var onTranscriptDelta: ((String) -> Void)?
@@ -116,11 +117,32 @@ final class RealtimeClient: NSObject, TranslatorClient {
         case "error":
             let err = json["error"] as? [String: Any]
             let message = err?["message"] as? String ?? "unknown API error"
+            // Speed is supported by current Realtime sessions, but keep the
+            // client usable if an older translation deployment rejects it.
+            // Retry the session negotiation once without speed instead of
+            // failing START for the user.
+            if !didRetryWithoutOutputSpeed,
+               message.localizedCaseInsensitiveContains("speed") {
+                didRetryWithoutOutputSpeed = true
+                sendSessionUpdate(includeSpeed: false)
+                return
+            }
             onError?(message)
 
         default:
             break
         }
+    }
+
+    private func sendSessionUpdate(includeSpeed: Bool) {
+        var output: [String: Any] = ["language": targetLanguage]
+        if includeSpeed {
+            output["speed"] = Self.outputSpeed
+        }
+        sendJSON([
+            "type": "session.update",
+            "session": ["audio": ["output": output]],
+        ])
     }
 }
 
@@ -130,17 +152,7 @@ extension RealtimeClient: URLSessionWebSocketDelegate {
         webSocketTask: URLSessionWebSocketTask,
         didOpenWithProtocol protocol: String?
     ) {
-        sendJSON([
-            "type": "session.update",
-            "session": [
-                "audio": [
-                    "output": [
-                        "language": targetLanguage,
-                        "speed": Self.outputSpeed,
-                    ],
-                ],
-            ],
-        ])
+        sendSessionUpdate(includeSpeed: true)
     }
 
     func urlSession(

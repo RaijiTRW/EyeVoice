@@ -89,7 +89,10 @@ Deno.serve(async (request) => {
   const session = translation
     ? {
         model: "gpt-realtime-translate",
-        audio: { output: { language: targetLanguage, speed: 1.5 } },
+        // The translation client-secret endpoint accepts only the initial
+        // language here. Playback speed is negotiated after the WebSocket is
+        // open; including it in this request makes token creation fail.
+        audio: { output: { language: targetLanguage } },
       }
     : {
         type: "realtime",
